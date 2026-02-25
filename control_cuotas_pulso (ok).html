@@ -1,0 +1,2423 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Control de Cuotas — Pulso</title>
+<!-- Firebase SDK -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import { getDatabase, ref, set, onValue, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+  // ── PASTE YOUR FIREBASE CONFIG HERE ──
+  const firebaseConfig = {
+  apiKey: "AIzaSyBIiw9xRGrTWrSohBmn5YJFMPV_KCWLPa0",
+  authDomain: "control-cuotas-pulso.firebaseapp.com",
+  databaseURL: "https://control-cuotas-pulso-default-rtdb.firebaseio.com",
+  projectId: "control-cuotas-pulso",
+  storageBucket: "control-cuotas-pulso.firebasestorage.app",
+  messagingSenderId: "55044827232",
+  appId: "1:55044827232:web:3b152771247e59cec3fb05",
+  measurementId: "G-VQES40QZ74"
+};
+
+  const app = initializeApp(firebaseConfig);
+  const db = getDatabase(app);
+  const DATA_REF = 'pulso/estado';
+
+  // Expose to global scope for legacy functions
+  window._fbRef = ref(db, DATA_REF);
+  window._fbSet = set;
+  window._fbServerTs = serverTimestamp;
+
+  // Listen for real-time changes from other users
+  onValue(window._fbRef, (snapshot) => {
+    const data = snapshot.val();
+    if (!data) return;
+    // Avoid overwriting if we just pushed (debounce)
+    if (window._suppressRemote) return;
+    try {
+      const parsed = typeof data === 'string' ? JSON.parse(data) : data;
+      Object.assign(ST, parsed);
+      renderAll();
+      renderEncuestas();
+      renderCostWidget();
+      showSyncStatus('sync', '● En vivo');
+    } catch(e) { console.warn('Firebase parse error', e); }
+  });
+
+  window._fbReady = true;
+  showSyncStatus('ok', '● Conectado');
+</script>
+
+<!-- Firebase SDK -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+  // ── PEGÁ TU CONFIG DE FIREBASE AQUÍ ──
+  const firebaseConfig = {
+    apiKey: "PASTE_API_KEY",
+    authDomain: "PASTE_AUTH_DOMAIN",
+    databaseURL: "PASTE_DATABASE_URL",
+    projectId: "PASTE_PROJECT_ID",
+    storageBucket: "PASTE_STORAGE_BUCKET",
+    messagingSenderId: "PASTE_SENDER_ID",
+    appId: "PASTE_APP_ID"
+  };
+
+  if(firebaseConfig.apiKey === "PASTE_API_KEY"){ window._fbReady=false; console.warn("Firebase no configurado"); }
+  else {
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+    const DATA_PATH = 'pulso/estado';
+    window._fbRef = ref(db, DATA_PATH);
+    window._fbSet = set;
+    window._fbReady = true;
+
+    // Escuchar cambios en tiempo real
+    onValue(window._fbRef, (snapshot) => {
+      const data = snapshot.val();
+      if (!data || window._suppressRemote) return;
+      try {
+        Object.assign(ST, JSON.parse(data));
+        renderAll(); renderEncuestas(); renderCostWidget();
+        showSyncStatus('sync', '● En vivo');
+      } catch(e) { console.warn('Firebase error', e); }
+    });
+    showSyncStatus('ok', '● Conectado');
+  }
+</script>
+
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Rubik:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0e0e0e;
+  --s1: #161616;
+  --s2: #1e1e1e;
+  --s3: #272727;
+  --border: #2e2e2e;
+  --border2: #3a3a3a;
+  --text: #f0ede8;
+  --muted: #717171;
+  --muted2: #4a4a4a;
+  --green: #3ecf8e;
+  --green-dim: #1a3d2c;
+  --amber: #f0a62e;
+  --amber-dim: #3d2a0a;
+  --red: #e05a5a;
+  --red-dim: #3d1515;
+  --blue: #5b9cf6;
+  --serif: 'Instrument Serif', serif;
+  --sans: 'Rubik', sans-serif;
+  --mono: 'JetBrains Mono', monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:100vh;font-size:14px}
+
+/* ─── layout ─── */
+.shell{display:flex;min-height:100vh}
+.rail{width:200px;background:var(--s1);border-right:1px solid var(--border);display:flex;flex-direction:column;padding:24px 0;flex-shrink:0;position:sticky;top:0;height:100vh}
+.rail-logo{padding:0 18px 20px;border-bottom:1px solid var(--border);margin-bottom:12px}
+.rail-logo .wordmark{font-family:var(--serif);font-size:20px;color:var(--text);line-height:1.1}
+.rail-logo .wordmark em{color:var(--green);font-style:italic}
+.rail-logo .sub{font-size:10px;letter-spacing:.15em;text-transform:uppercase;color:var(--muted);margin-top:4px}
+.nav-btn{display:flex;align-items:center;gap:9px;padding:9px 18px;cursor:pointer;font-size:12.5px;font-weight:500;color:var(--muted);border-left:2px solid transparent;transition:all .12s;letter-spacing:.02em;background:none;border-top:none;border-right:none;border-bottom:none;width:100%;text-align:left}
+.nav-btn:hover{color:var(--text);background:rgba(255,255,255,.04)}
+.nav-btn.on{color:var(--text);border-left-color:var(--green);background:rgba(62,207,142,.07)}
+.nav-icon{font-size:14px;width:18px;text-align:center;flex-shrink:0}
+.rail-stats{margin-top:auto;padding:16px 18px 0;border-top:1px solid var(--border)}
+.rs{margin-top:14px}
+.rs-val{font-family:var(--mono);font-size:22px;font-weight:500;color:var(--green);line-height:1}
+.rs-lbl{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-top:3px}
+
+/* ─── main ─── */
+.main{flex:1;padding:30px 32px;min-width:0;overflow-x:hidden}
+.pg-head{margin-bottom:24px}
+.pg-title{font-family:var(--serif);font-size:26px;color:var(--text);line-height:1}
+.pg-sub{font-size:12.5px;color:var(--muted);margin-top:5px}
+
+/* ─── panels ─── */
+.panel{display:none}.panel.on{display:block}
+
+/* ─── cards ─── */
+.card{background:var(--s1);border:1px solid var(--border);border-radius:10px;padding:20px 22px;margin-bottom:16px}
+.card-hd{font-size:10px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:16px;display:flex;align-items:center;gap:8px}
+.card-hd::after{content:'';flex:1;height:1px;background:var(--border)}
+
+/* ─── btns ─── */
+.btn{border:none;border-radius:7px;cursor:pointer;font-family:var(--sans);font-size:12.5px;font-weight:600;padding:8px 16px;transition:all .1s;display:inline-flex;align-items:center;gap:6px;white-space:nowrap;letter-spacing:.01em}
+.btn:active{transform:scale(.97)}
+.btn-g{background:var(--green);color:#0e1a12}
+.btn-g:hover{background:#4adeaa}
+.btn-w{background:var(--s3);color:var(--text);border:1px solid var(--border2)}
+.btn-w:hover{border-color:var(--border2);background:var(--s2)}
+.btn-d{background:transparent;color:var(--red);border:1px solid var(--red-dim)}
+.btn-d:hover{background:var(--red-dim)}
+.btn:disabled{opacity:.35;cursor:not-allowed}
+.btn-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+
+/* ─── form ─── */
+.field{display:flex;flex-direction:column;gap:5px}
+.field label{font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.field input,.field select,.field textarea{background:var(--s2);border:1px solid var(--border2);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:12.5px;padding:8px 11px;outline:none;transition:border-color .12s}
+.field input:focus,.field select:focus,.field textarea:focus{border-color:var(--green)}
+.field .note{font-size:11px;color:var(--muted);line-height:1.5}
+.field textarea{resize:vertical;min-height:100px;line-height:1.5}
+.frow{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end}
+
+/* ─── drop zone ─── */
+.dropzone{border:2px dashed var(--border2);border-radius:10px;padding:36px;text-align:center;cursor:pointer;transition:all .15s;background:var(--s1)}
+.dropzone:hover,.dropzone.drag{border-color:var(--green);background:rgba(62,207,142,.05)}
+.dropzone .dz-icon{font-size:32px;margin-bottom:10px}
+.dropzone h3{font-size:15px;font-weight:600;margin-bottom:6px}
+.dropzone p{font-size:12.5px;color:var(--muted);line-height:1.6}
+.dropzone .dz-or{font-size:11px;color:var(--muted2);margin:10px 0}
+.hidden{display:none}
+
+/* ─── paste area ─── */
+.paste-area{background:var(--s2);border:1px solid var(--border2);border-radius:8px;padding:12px;font-family:var(--mono);font-size:12px;color:var(--text);outline:none;width:100%;min-height:120px;resize:vertical;line-height:1.5}
+.paste-area:focus{border-color:var(--green)}
+.paste-area::placeholder{color:var(--muted2)}
+
+/* ─── steps ─── */
+.steps{display:flex;flex-direction:column;gap:0}
+.step{display:flex;gap:14px;padding:16px 0;border-bottom:1px solid var(--border)}
+.step:last-child{border-bottom:none}
+.step-n{background:var(--s3);border:1px solid var(--border2);border-radius:50%;width:28px;height:28px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--text);flex-shrink:0;margin-top:1px}
+.step-body{font-size:13px;line-height:1.65;color:var(--muted)}
+.step-body strong{color:var(--text);font-weight:600}
+.step-body code{background:var(--s3);border-radius:4px;font-family:var(--mono);font-size:11px;padding:1px 6px;color:var(--green)}
+
+/* ─── col mapper ─── */
+.col-map-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px}
+
+/* ─── summary bar ─── */
+.sumbar{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px}
+.scard{background:var(--s1);border:1px solid var(--border);border-radius:9px;padding:16px 18px}
+.scard .v{font-family:var(--mono);font-size:24px;font-weight:500;line-height:1;color:var(--text)}
+.scard .l{font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-top:5px}
+.scard.hi .v{color:var(--green)}
+
+/* ─── quota grid ─── */
+.qgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}
+.qcard{background:var(--s1);border:1px solid var(--border);border-radius:9px;padding:16px 18px;transition:border-color .15s}
+.qcard.warn{border-color:var(--amber);background:rgba(240,166,46,.04)}
+.qcard.full{border-color:var(--red);background:rgba(224,90,90,.05)}
+.qc-hd{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px;gap:6px}
+.qc-lbl{font-size:12.5px;font-weight:600;line-height:1.35}
+.qc-dim{font-size:11px;color:var(--muted);font-weight:400;margin-top:2px}
+.pill{border-radius:20px;font-family:var(--mono);font-size:9.5px;font-weight:500;letter-spacing:.06em;padding:3px 8px;white-space:nowrap}
+.pill-g{background:var(--green-dim);color:var(--green)}
+.pill-a{background:var(--amber-dim);color:var(--amber)}
+.pill-r{background:var(--red-dim);color:var(--red)}
+.pill-x{background:var(--s3);color:var(--muted)}
+.qc-nums{display:flex;align-items:baseline;gap:4px;margin-bottom:5px}
+.qc-cur{font-family:var(--mono);font-size:26px;font-weight:500}
+.qc-tgt{font-family:var(--mono);font-size:13px;color:var(--muted)}
+.prog-track{background:var(--s3);border-radius:3px;height:5px;overflow:hidden}
+.prog-fill{height:100%;border-radius:3px;transition:width .6s cubic-bezier(.4,0,.2,1)}
+.pf-g{background:var(--green)}.pf-a{background:var(--amber)}.pf-r{background:var(--red)}
+.qc-pct{font-family:var(--mono);font-size:10px;color:var(--muted);text-align:right;margin-top:4px}
+
+/* ─── alerts ─── */
+.alerts{display:flex;flex-direction:column;gap:7px;margin-bottom:18px}
+.al{border-radius:8px;display:flex;align-items:flex-start;gap:9px;padding:11px 14px;font-size:12.5px;animation:au .2s ease}
+.al-r{background:var(--red-dim);border:1px solid #5a2020;color:#f08080}
+.al-a{background:var(--amber-dim);border:1px solid #5a3a10;color:#f0c060}
+.al-g{background:var(--green-dim);border:1px solid #1a5a38;color:var(--green)}
+@keyframes au{from{opacity:0;transform:translateY(-3px)}to{opacity:1;transform:none}}
+
+/* ─── table ─── */
+.tbl-wrap{background:var(--s1);border:1px solid var(--border);border-radius:10px;overflow:hidden}
+.tbl-bar{padding:12px 18px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border);flex-wrap:wrap;gap:8px}
+.tbl-info{font-size:13px;font-weight:600}
+.tbl-info span{font-weight:400;color:var(--muted);margin-left:6px}
+.scroll-x{overflow-x:auto}
+table{width:100%;border-collapse:collapse}
+thead th{background:var(--s2);color:var(--muted);font-size:10px;font-weight:700;letter-spacing:.12em;padding:9px 13px;text-align:left;text-transform:uppercase;white-space:nowrap}
+tbody tr{border-top:1px solid var(--border);transition:background .1s}
+tbody tr:hover{background:rgba(62,207,142,.03)}
+tbody td{font-family:var(--mono);font-size:12px;padding:8px 13px;white-space:nowrap}
+.td-dim{color:var(--muted)}
+.tr-bad td{background:rgba(224,90,90,.06)!important}
+.tr-noest td{background:rgba(240,166,46,.05)!important}
+
+/* ─── quota matrix table ─── */
+.qmat-wrap{overflow-x:auto}
+.qmat-wrap table td input{background:var(--s2);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:var(--mono);font-size:12px;padding:5px 7px;width:62px;outline:none;text-align:center;transition:border-color .12s}
+.qmat-wrap table td input:focus{border-color:var(--green)}
+.qmat-wrap table td{padding:7px 10px}
+.qmat-wrap table th{padding:8px 10px}
+
+/* ─── section sep ─── */
+.sep{font-size:9.5px;font-weight:700;letter-spacing:.2em;text-transform:uppercase;color:var(--muted2);margin:22px 0 12px;display:flex;align-items:center;gap:8px}
+.sep::after{content:'';flex:1;height:1px;background:var(--border)}
+
+/* ─── upload state ─── */
+.upload-state{background:var(--s2);border:1px solid var(--border2);border-radius:8px;padding:14px 16px;margin-top:12px;font-size:12.5px;display:none}
+.upload-state.show{display:block}
+.us-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+.us-row:last-child{margin-bottom:0}
+.us-ok{color:var(--green)}
+.us-warn{color:var(--amber)}
+.us-err{color:var(--red)}
+
+/* ─── inline code ─── */
+.icode{background:var(--s3);border-radius:4px;font-family:var(--mono);font-size:11px;padding:1px 6px;color:var(--green)}
+.formula-block{background:#0a1a10;border:1px solid var(--green-dim);border-radius:8px;padding:12px 16px;font-family:var(--mono);font-size:12px;color:#7de8b4;line-height:1.8;margin-bottom:10px;overflow-x:auto;white-space:nowrap}
+.formula-note{font-size:11.5px;color:var(--muted);margin-bottom:14px;line-height:1.6}
+
+/* ─── tag ─── */
+.tag{border-radius:5px;font-size:10.5px;padding:2px 7px;font-family:var(--mono)}
+.tag-m{background:#0f1e30;color:#5b9cf6}
+.tag-f{background:#1e0f2e;color:#b57ef5}
+.tag-nb{background:#1e1a0f;color:#d4a24a}
+
+@media(max-width:700px){
+  .rail{display:none}
+  .main{padding:16px}
+  .sumbar{grid-template-columns:repeat(2,1fr)}
+}
+
+.loader{display:inline-block;width:13px;height:13px;border:2px solid rgba(62,207,142,.2);border-top-color:var(--green);border-radius:50%;animation:spin .65s linear infinite;vertical-align:middle}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* tabs within connect panel */
+.ctabs{display:flex;gap:0;margin-bottom:20px;border-bottom:1px solid var(--border)}
+.ctab{background:none;border:none;border-bottom:2px solid transparent;color:var(--muted);cursor:pointer;font-family:var(--sans);font-size:12.5px;font-weight:600;letter-spacing:.04em;padding:9px 18px;margin-bottom:-1px;transition:all .15s}
+.ctab:hover{color:var(--text)}
+.ctab.on{color:var(--text);border-bottom-color:var(--green)}
+.ctp{display:none}.ctp.on{display:block}
+
+/* ─── dashboard v2 ─── */
+.global-prog-wrap{background:var(--s1);border:1px solid var(--border);border-radius:10px;padding:16px 20px}
+.gp-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.gp-label{font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.gp-pct{font-family:var(--mono);font-size:20px;font-weight:500;color:var(--green)}
+.gp-track{background:var(--s3);border-radius:6px;height:12px;overflow:hidden;position:relative}
+.gp-fill{height:100%;border-radius:6px;background:linear-gradient(90deg,var(--green),#6af0b0);transition:width .8s cubic-bezier(.4,0,.2,1)}
+.gp-sub{display:flex;justify-content:space-between;margin-top:8px;font-family:var(--mono);font-size:11px;color:var(--muted)}
+
+/* estrato section */
+.estrato-section{margin-bottom:28px}
+.estrato-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;padding:12px 16px;background:var(--s2);border:1px solid var(--border2);border-radius:9px;cursor:pointer;transition:background .12s}
+.estrato-header:hover{background:var(--s3)}
+.estrato-title{display:flex;align-items:center;gap:10px}
+.estrato-badge{background:var(--s3);border:1px solid var(--border2);border-radius:6px;font-family:var(--mono);font-size:11px;font-weight:600;padding:3px 10px;color:var(--text)}
+.estrato-name{font-size:14px;font-weight:700;color:var(--text)}
+.estrato-meta{display:flex;align-items:center;gap:16px}
+.estrato-prog{display:flex;align-items:center;gap:8px}
+.estrato-prog-track{width:100px;background:var(--s3);border-radius:3px;height:5px;overflow:hidden}
+.estrato-prog-fill{height:100%;border-radius:3px;transition:width .6s ease}
+.estrato-prog-pct{font-family:var(--mono);font-size:11px;color:var(--muted)}
+.estrato-counts{font-family:var(--mono);font-size:12px;color:var(--muted)}
+.estrato-pills{display:flex;gap:5px}
+.estrato-body{overflow:hidden;transition:max-height .3s ease}
+
+/* heatmap table */
+.hmap-wrap{background:var(--s1);border:1px solid var(--border);border-radius:9px;overflow:hidden;margin-bottom:4px}
+.hmap-wrap table{width:100%;border-collapse:collapse}
+.hmap-wrap thead th{background:var(--s2);color:var(--muted);font-size:9.5px;font-weight:700;letter-spacing:.12em;padding:8px 12px;text-align:center;text-transform:uppercase;white-space:nowrap;border-bottom:1px solid var(--border)}
+.hmap-wrap thead th:first-child{text-align:left}
+.hmap-wrap tbody td{padding:0;border:1px solid var(--border)}
+.hmap-wrap tbody td:first-child{padding:8px 12px;font-family:var(--mono);font-size:11px;font-weight:600;color:var(--muted);background:var(--s2);white-space:nowrap;border:none;border-bottom:1px solid var(--border)}
+.hcell{padding:8px 10px;text-align:center;cursor:default;transition:filter .1s;position:relative}
+.hcell:hover{filter:brightness(1.15)}
+.hcell-nums{font-family:var(--mono);font-size:13px;font-weight:600;line-height:1}
+.hcell-tgt{font-family:var(--mono);font-size:9px;color:rgba(255,255,255,.5);margin-top:2px}
+.hcell-bar{height:3px;border-radius:2px;margin-top:5px;background:rgba(255,255,255,.15)}
+.hcell-bar-fill{height:100%;border-radius:2px;background:rgba(255,255,255,.6);transition:width .5s ease}
+/* cell colors */
+.hc-ok{background:#0f2a1a}
+.hc-ok .hcell-nums{color:#5bdb8a}
+.hc-warn{background:#2a1a05}
+.hc-warn .hcell-nums{color:#f0c060}
+.hc-full{background:#2a0808}
+.hc-full .hcell-nums{color:#f08080}
+.hc-empty{background:var(--s2)}
+.hc-empty .hcell-nums{color:var(--muted2)}
+
+/* gender split inside cell - compact mode */
+.hcell-split{display:flex;gap:4px;justify-content:center;flex-wrap:wrap}
+.hcell-g{font-size:10px;font-family:var(--mono);opacity:.85}
+
+/* compact view toggle */
+.dash-compact .estrato-body{display:none!important}
+.dash-compact .estrato-header{cursor:default}
+
+/* ─── quota table v2 ─── */
+.qtable-wrap{background:var(--s1);border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:20px}
+.qtable-gender-hd{background:var(--s2);border-bottom:1px solid var(--border);padding:10px 16px;display:flex;align-items:center;gap:10px}
+.qtable-gender-label{font-size:12px;font-weight:700;letter-spacing:.06em;color:var(--text)}
+.qtable-gender-tag{border-radius:5px;font-size:10.5px;padding:2px 8px;font-family:var(--mono)}
+.qt-scroll{overflow-x:auto}
+.qtable{width:100%;border-collapse:collapse}
+.qtable thead th{background:var(--s2);color:var(--muted);font-size:10px;font-weight:700;letter-spacing:.12em;padding:9px 14px;text-align:center;text-transform:uppercase;white-space:nowrap;border-bottom:1px solid var(--border);border-right:1px solid var(--border)}
+.qtable thead th:first-child{text-align:left;border-left:none}
+.qtable thead .th-est{background:var(--s3);color:var(--text);font-size:11px}
+.qtable tbody tr{border-bottom:1px solid var(--border)}
+.qtable tbody tr:last-child{border-bottom:none}
+.qtable tbody td{border-right:1px solid var(--border);padding:0}
+.qtable tbody td:first-child{padding:0 14px;font-family:var(--mono);font-size:12px;font-weight:600;color:var(--muted);background:var(--s2);white-space:nowrap;min-width:90px}
+.qtable tbody td.totcol{padding:0 12px;font-family:var(--mono);font-size:12px;font-weight:600;color:var(--green);background:var(--s2);text-align:center;min-width:70px}
+.qtable tfoot td{background:var(--s2);border-top:2px solid var(--border2);padding:8px 14px;font-family:var(--mono);font-size:12px;font-weight:600;color:var(--muted);text-align:center}
+.qtable tfoot td:first-child{text-align:left;color:var(--muted)}
+.qtable tfoot td.tot-val{color:var(--green)}
+
+/* editable cell */
+.qcell{display:block;width:100%;height:100%;min-width:75px;background:transparent;border:none;color:var(--text);font-family:var(--mono);font-size:13px;font-weight:500;padding:9px 12px;text-align:center;outline:none;transition:background .1s;cursor:cell}
+.qcell:hover{background:rgba(255,255,255,.04)}
+.qcell:focus{background:rgba(62,207,142,.12);color:var(--green);box-shadow:inset 0 0 0 2px var(--green)}
+.qcell.has-val{color:var(--text)}
+.qcell.pasted{animation:flash .4s ease}
+@keyframes flash{0%{background:rgba(62,207,142,.35)}100%{background:rgba(62,207,142,.12)}}
+
+/* total row highlight */
+.qtable-grand-total{background:var(--s1);border:1px solid var(--border);border-radius:8px;padding:12px 18px;margin-top:8px;display:flex;align-items:center;gap:20px;font-family:var(--mono);font-size:13px;flex-wrap:wrap}
+.qt-gt-label{font-size:10px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:var(--muted);margin-right:4px}
+.qt-gt-val{font-size:20px;font-weight:600;color:var(--green)}
+.qt-gt-sep{width:1px;height:24px;background:var(--border)}
+
+
+/* ─── reset button & modal ─── */
+.btn-reset{background:transparent;border:1px solid rgba(255,255,255,.1);border-radius:6px;color:rgba(255,255,255,.3);cursor:pointer;font-family:var(--sans);font-size:11px;font-weight:600;letter-spacing:.05em;padding:7px 12px;margin-top:16px;width:calc(100% - 36px);margin-left:18px;transition:all .15s}
+.btn-reset:hover{border-color:var(--red);color:var(--red);background:rgba(224,90,90,.08)}
+.reset-opt{display:flex;align-items:flex-start;gap:12px;background:var(--s2);border:1px solid var(--border);border-radius:8px;padding:12px 14px;cursor:pointer;transition:border-color .12s;user-select:none}
+.reset-opt:hover{border-color:var(--border2)}
+.reset-check{width:20px;height:20px;border-radius:4px;background:var(--red-dim);border:1px solid var(--red);color:var(--red);font-size:11px;display:flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0;margin-top:1px;transition:all .12s}
+.reset-check.off{background:var(--s3);border-color:var(--border2);color:transparent}
+
+/* ─── encuestas ─── */
+.enc-card{background:var(--s1);border:1px solid var(--border);border-radius:11px;padding:20px 22px;margin-bottom:12px;display:grid;grid-template-columns:1fr auto;gap:16px;align-items:start;transition:border-color .15s}
+.enc-card:hover{border-color:var(--border2)}
+.enc-card-title{font-size:15px;font-weight:700;color:var(--text);margin-bottom:4px}
+.enc-card-meta{font-size:11.5px;color:var(--muted);display:flex;gap:14px;flex-wrap:wrap;margin-bottom:10px}
+.enc-card-meta span{display:flex;align-items:center;gap:4px}
+.enc-card-stats{display:flex;gap:10px;flex-wrap:wrap}
+.enc-stat{background:var(--s2);border:1px solid var(--border);border-radius:6px;padding:5px 10px;font-family:var(--mono);font-size:11px}
+.enc-stat .sv{font-size:13px;font-weight:600;color:var(--text)}
+.enc-stat .sl{color:var(--muted);font-size:9.5px;display:block;margin-top:1px}
+.enc-card-notes{font-size:12px;color:var(--muted);margin-top:8px;font-style:italic;line-height:1.5}
+.enc-actions{display:flex;flex-direction:column;gap:7px;align-items:flex-end}
+.enc-prog-bar{height:4px;background:var(--s3);border-radius:2px;width:100%;margin-top:8px;overflow:hidden}
+.enc-prog-fill{height:100%;border-radius:2px;background:var(--green)}
+
+
+/* ─── provincias table ─── */
+.prov-table-outer{background:var(--s1);border:1px solid var(--border);border-radius:11px;overflow:hidden}
+.prov-table-scroll{overflow-x:auto}
+.prov-table{width:100%;border-collapse:collapse;font-size:12px}
+.prov-table thead tr th{background:var(--s2);color:var(--muted);font-size:9.5px;font-weight:700;letter-spacing:.12em;padding:9px 12px;text-align:center;text-transform:uppercase;white-space:nowrap;border-bottom:1px solid var(--border);border-right:1px solid var(--border)}
+.prov-table thead tr th:first-child{text-align:left;min-width:160px;position:sticky;left:0;z-index:2;background:var(--s2)}
+.prov-table thead .th-group{background:var(--s3);color:var(--text);font-size:10px}
+.prov-table tbody tr{border-bottom:1px solid var(--border);transition:background .1s}
+.prov-table tbody tr:hover{background:rgba(62,207,142,.04)}
+.prov-table tbody tr:last-child{border-bottom:none}
+.prov-table tbody td{padding:9px 12px;border-right:1px solid var(--border);text-align:center;font-family:var(--mono);font-size:12px;color:var(--text)}
+.prov-table tbody td:first-child{text-align:left;font-family:var(--sans);font-weight:600;font-size:12.5px;color:var(--text);position:sticky;left:0;z-index:1;background:var(--s1)}
+.prov-table tbody tr:hover td:first-child{background:var(--s2)}
+.prov-table tbody td.td-total{font-weight:700;color:var(--green);background:rgba(62,207,142,.05)}
+.prov-table tbody td.td-jov{color:#a78bfa}
+.prov-table tbody td.td-zero{color:var(--muted2)}
+.prov-table tfoot td{background:var(--s2);border-top:2px solid var(--border2);padding:9px 12px;font-family:var(--mono);font-size:12px;font-weight:700;text-align:center;color:var(--green);border-right:1px solid var(--border)}
+.prov-table tfoot td:first-child{text-align:left;font-family:var(--sans);font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);position:sticky;left:0;background:var(--s2)}
+
+/* summary pills */
+.prov-pill{background:var(--s2);border:1px solid var(--border);border-radius:8px;padding:10px 16px;display:flex;flex-direction:column;gap:3px;min-width:120px}
+.prov-pill .pv{font-family:var(--mono);font-size:18px;font-weight:600;line-height:1}
+.prov-pill .pl{font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+
+</style>
+</head>
+<body>
+<div class="shell">
+
+<!-- ── RAIL ── -->
+<nav class="rail">
+  <div class="rail-logo">
+    <div class="wordmark">Control de<br><em>Cuotas</em></div>
+    <div style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.35);margin-top:5px">Encuestas Pulso</div>
+    <div id="sync-status" style="margin-top:8px;font-size:10px;font-family:var(--mono);color:rgba(255,255,255,.25);display:flex;align-items:center;gap:5px">● Sin configurar</div>
+    
+  </div>
+  <button class="nav-btn on" data-p="dashboard"><span class="nav-icon">▦</span>Dashboard</button>
+  <button class="nav-btn" data-p="datos"><span class="nav-icon">⊞</span>Datos</button>
+  <button class="nav-btn" data-p="cargar"><span class="nav-icon">↑</span>Cargar datos</button>
+  <button class="nav-btn" data-p="cuotas"><span class="nav-icon">◫</span>Cuotas</button>
+  <button class="nav-btn" data-p="encuestas"><span class="nav-icon">◈</span>Encuestas</button>
+  <button class="nav-btn" data-p="provincias"><span class="nav-icon">⊛</span>Provincias</button>
+  <button class="nav-btn" data-p="ayuda"><span class="nav-icon">?</span>Ayuda</button>
+
+  <div class="rail-stats">
+    <div class="rs">
+      <div class="rs-val" id="sb-casos">0</div>
+      <div class="rs-lbl">Casos</div>
+    </div>
+    <div class="rs" style="margin-top:12px">
+      <div class="rs-val" id="sb-avance" style="color:var(--amber)">—</div>
+      <div class="rs-lbl">Avance</div>
+    </div>
+    <button class="btn-reset" onclick="showResetMenu()" title="Reiniciar">
+      ↺ Reiniciar
+    </button>
+  </div>
+</nav>
+
+<!-- Reset modal -->
+<div id="reset-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:999;display:none;align-items:center;justify-content:center">
+  <div style="background:var(--s1);border:1px solid var(--border2);border-radius:14px;padding:28px 32px;width:380px;max-width:90vw">
+    <div style="font-family:var(--serif);font-size:20px;margin-bottom:6px">Reiniciar</div>
+    <div style="font-size:12.5px;color:var(--muted);margin-bottom:22px;line-height:1.6">Elegí qué querés borrar. Esta acción no se puede deshacer.</div>
+
+    <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:22px">
+      <label class="reset-opt" onclick="toggleResetOpt(this)">
+        <div class="reset-check" id="rc-casos">✓</div>
+        <div>
+          <div style="font-size:13px;font-weight:600">Casos cargados</div>
+          <div style="font-size:11.5px;color:var(--muted)">Borra todos los encuestados procesados</div>
+        </div>
+      </label>
+      <label class="reset-opt" onclick="toggleResetOpt(this)">
+        <div class="reset-check" id="rc-cuotas">✓</div>
+        <div>
+          <div style="font-size:13px;font-weight:600">Cuotas configuradas</div>
+          <div style="font-size:11.5px;color:var(--muted)">Borra los objetivos por celda</div>
+        </div>
+      </label>
+      <label class="reset-opt" onclick="toggleResetOpt(this)">
+        <div class="reset-check" id="rc-ref">✓</div>
+        <div>
+          <div style="font-size:13px;font-weight:600">Tabla de referencia de estratos</div>
+          <div style="font-size:11.5px;color:var(--muted)">Borra provincia → departamento → estrato</div>
+        </div>
+      </label>
+    </div>
+
+    <div style="display:flex;gap:10px;justify-content:flex-end">
+      <button class="btn btn-w" onclick="closeReset()">Cancelar</button>
+      <button class="btn btn-d" onclick="doReset()" style="background:var(--red);color:#fff;border:none">Confirmar reinicio</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── MAIN ── -->
+<div class="main">
+
+<!-- ════ DASHBOARD ════ -->
+<div id="p-dashboard" class="panel on">
+  <div class="pg-head" style="margin-bottom:16px">
+    <div>
+      <div class="pg-title" id="dash-title">Encuesta</div>
+      <div class="pg-sub">Monitoreo de cuotas en tiempo real</div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-w" onclick="toggleDashView()" id="btn-view-toggle">Vista compacta</button>
+    </div>
+  </div>
+
+  <!-- KPI row -->
+  <div class="sumbar" style="margin-bottom:14px">
+    <div class="scard hi"><div class="v" id="sum-casos">0</div><div class="l">Casos válidos</div></div>
+    <div class="scard"><div class="v" id="sum-obj">—</div><div class="l">Objetivo N</div></div>
+    <div class="scard hi"><div class="v" id="sum-pct">—</div><div class="l">Avance general</div></div>
+    <div class="scard"><div class="v" id="sum-cerradas">0</div><div class="l">Cuotas cerradas</div></div>
+    <div class="scard" style="border-color:#3a2d6a"><div class="v" id="sum-jovenes" style="color:#a78bfa">0</div><div class="l">Jóvenes ≤29</div></div>
+    <div class="scard" style="border-color:#2a3a1a;cursor:pointer" onclick="toggleCostPanel()" title="Click para editar gastos">
+      <div class="v" id="sum-costo-caso" style="color:var(--amber)">—</div>
+      <div class="l">$ por caso <span style="font-size:9px;opacity:.6">▾</span></div>
+    </div>
+  </div>
+
+  <!-- Cost panel (collapsible) -->
+  <div id="cost-panel" style="display:none;margin-bottom:16px">
+    <div class="card" style="padding:16px 20px">
+      <div class="card-hd">Registro de gastos</div>
+      <div class="frow" style="gap:14px;align-items:flex-end;margin-bottom:16px">
+        <div class="field">
+          <label>Gasto total acumulado ($)</label>
+          <input type="number" id="cost-total" min="0" placeholder="0" style="width:180px" oninput="updateCost()">
+        </div>
+        <div class="field">
+          <label>Moneda</label>
+          <select id="cost-moneda" style="width:100px" onchange="updateCost()">
+            <option value="$">$ ARS</option>
+            <option value="U$D">U$D</option>
+          </select>
+        </div>
+        <div style="font-family:var(--mono);font-size:12px;color:var(--muted);padding-bottom:9px">
+          Última actualización: <span id="cost-fecha" style="color:var(--text)">—</span>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">
+        <div style="background:var(--s2);border:1px solid var(--border);border-radius:8px;padding:14px 16px">
+          <div style="font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:6px">Costo por caso actual</div>
+          <div style="font-family:var(--mono);font-size:20px;font-weight:600;color:var(--amber)" id="cost-por-caso-act">—</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:3px">gasto ÷ casos cargados</div>
+        </div>
+        <div style="background:var(--s2);border:1px solid var(--border);border-radius:8px;padding:14px 16px">
+          <div style="font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:6px">Costo estimado al N objetivo</div>
+          <div style="font-family:var(--mono);font-size:20px;font-weight:600;color:var(--amber)" id="cost-estimado">—</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:3px">costo/caso × N objetivo</div>
+        </div>
+        <div style="background:var(--s2);border:1px solid var(--border);border-radius:8px;padding:14px 16px">
+          <div style="font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:6px">Costo restante estimado</div>
+          <div style="font-family:var(--mono);font-size:20px;font-weight:600;color:var(--muted)" id="cost-restante">—</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:3px">para llegar al objetivo</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Global progress bar -->
+  <div id="dash-global-bar" style="margin-bottom:20px"></div>
+
+  <!-- Alerts -->
+  <div class="alerts" id="dash-alerts"></div>
+
+  <!-- Main content: by estrato -->
+  <div id="dash-qgrid"></div>
+</div>
+
+<!-- ════ DATOS ════ -->
+<div id="p-datos" class="panel">
+  <div class="pg-head">
+    <div class="pg-title">Datos cargados</div>
+    <div class="pg-sub" id="datos-sub">—</div>
+  </div>
+
+  <!-- manual -->
+  <div class="card">
+    <div class="card-hd">Agregar caso individual</div>
+    <div class="frow">
+      <div class="field">
+        <label>Género</label>
+        <select id="m-gen" style="width:130px">
+          <option>Masculino</option><option>Femenino</option><option>No binario</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Edad</label>
+        <input type="number" id="m-edad" min="1" max="120" placeholder="34" style="width:80px">
+      </div>
+      <div class="field">
+        <label>Provincia</label>
+        <select id="m-prov" onchange="fillDepto()" style="width:170px"></select>
+      </div>
+      <div class="field">
+        <label>Departamento</label>
+        <select id="m-depto" style="width:180px"></select>
+      </div>
+      <div class="field">
+        <label>ID</label>
+        <input type="text" id="m-id" placeholder="R001" style="width:90px">
+      </div>
+      <button class="btn btn-g" onclick="addManual()">+ Agregar</button>
+    </div>
+  </div>
+
+  <div class="tbl-wrap">
+    <div class="tbl-bar">
+      <div class="tbl-info">Casos <span id="tbl-count">0</span></div>
+      <div class="btn-row">
+        <button class="btn btn-w" onclick="exportCSV()">↓ Exportar CSV</button>
+        <button class="btn btn-d" onclick="clearCases()">✕ Limpiar</button>
+      </div>
+    </div>
+    <div class="scroll-x">
+    <table>
+      <thead><tr>
+        <th>#</th><th>ID</th><th>Género</th><th>Edad</th><th>Grupo edad</th>
+        <th>Provincia</th><th>Departamento</th><th>Estrato</th><th>Cuota</th><th>Estado</th><th></th>
+      </tr></thead>
+      <tbody id="tbl-body"></tbody>
+    </table>
+    </div>
+  </div>
+</div>
+
+<!-- ════ CARGAR ════ -->
+<div id="p-cargar" class="panel">
+  <div class="pg-head">
+    <div class="pg-title">Cargar datos</div>
+    <div class="pg-sub">Importá los datos de SurveyMonkey y tu tabla de referencia de estratos</div>
+  </div>
+
+  <div class="ctabs">
+    <button class="ctab on" data-ct="ref">① Tabla de estratos</button>
+    <button class="ctab" data-ct="survey">② Datos de encuesta</button>
+  </div>
+
+  <!-- ── SUB-TAB: REFERENCIA ── -->
+  <div id="ct-ref" class="ctp on">
+    <div class="card">
+      <div class="card-hd">Tabla referencia: Provincia → Departamento → Estrato</div>
+      <p style="font-size:12.5px;color:var(--muted);margin-bottom:16px;line-height:1.6">
+        Esta tabla la cargás <strong style="color:var(--text)">una sola vez</strong>. Desde tu Google Sheet de referencia: <strong style="color:var(--text)">Archivo → Descargar → CSV</strong>, o pegá los datos directamente.
+      </p>
+
+      <div class="ctabs" style="margin-bottom:16px">
+        <button class="ctab on" data-ct2="ref-drop">Subir CSV</button>
+        <button class="ctab" data-ct2="ref-paste">Pegar datos</button>
+      </div>
+
+      <div id="ct2-ref-drop" class="ctp on">
+        <div class="dropzone" id="dz-ref" onclick="document.getElementById('fi-ref').click()"
+          ondragover="dzOver(event,'dz-ref')" ondragleave="dzOut('dz-ref')" ondrop="dzDrop(event,'ref')">
+          <div class="dz-icon">📋</div>
+          <h3>Tabla de referencia</h3>
+          <p>Arrastrá el CSV aquí o hacé clic para seleccionarlo</p>
+          <div class="dz-or">─── o ───</div>
+          <button class="btn btn-w" onclick="event.stopPropagation();document.getElementById('fi-ref').click()">Elegir archivo</button>
+        </div>
+        <input type="file" id="fi-ref" class="hidden" accept=".csv,.tsv" onchange="fileLoad(event,'ref')">
+      </div>
+
+      <div id="ct2-ref-paste" class="ctp">
+        <p style="font-size:12px;color:var(--muted);margin-bottom:8px">Copiá las celdas directamente desde Google Sheets (Ctrl+A, Ctrl+C) y pegá acá:</p>
+        <textarea class="paste-area" id="pa-ref" placeholder="Pegá acá (Tab entre columnas, Enter entre filas)..."></textarea>
+        <div style="margin-top:8px" class="btn-row">
+          <button class="btn btn-g" onclick="pasteLoad('ref')">Procesar datos pegados</button>
+        </div>
+      </div>
+
+      <div class="upload-state" id="us-ref">
+        <div class="us-row"><span>Registros cargados</span><span class="us-ok" id="us-ref-rows">—</span></div>
+        <div class="us-row"><span>Estratos detectados</span><span class="us-ok" id="us-ref-est">—</span></div>
+        <div class="us-row"><span>Provincias</span><span class="us-ok" id="us-ref-prov">—</span></div>
+      </div>
+    </div>
+
+    <div class="card" id="ref-col-card" style="display:none">
+      <div class="card-hd">Mapeá las columnas</div>
+      <div class="col-map-grid" id="ref-col-map"></div>
+      <div style="margin-top:16px" class="btn-row">
+        <button class="btn btn-g" onclick="applyRef()">✓ Confirmar tabla de referencia</button>
+        <span id="ref-apply-msg" style="font-size:12px;color:var(--muted)"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── SUB-TAB: SURVEY ── -->
+  <div id="ct-survey" class="ctp">
+    <div class="card">
+      <div class="card-hd">Datos de SurveyMonkey</div>
+      <p style="font-size:12.5px;color:var(--muted);margin-bottom:16px;line-height:1.6">
+        Desde tu Google Sheet: <strong style="color:var(--text)">Archivo → Descargar → CSV</strong>. Podés subir el CSV completo aunque tenga 2500–3000 filas.
+      </p>
+
+      <div class="ctabs" style="margin-bottom:16px">
+        <button class="ctab on" data-ct2="sv-drop">Subir CSV</button>
+        <button class="ctab" data-ct2="sv-paste">Pegar datos</button>
+      </div>
+
+      <div id="ct2-sv-drop" class="ctp on">
+        <div class="dropzone" id="dz-sv" onclick="document.getElementById('fi-sv').click()"
+          ondragover="dzOver(event,'dz-sv')" ondragleave="dzOut('dz-sv')" ondrop="dzDrop(event,'sv')">
+          <div class="dz-icon">📊</div>
+          <h3>Datos de encuesta</h3>
+          <p>Arrastrá el CSV de SurveyMonkey aquí o hacé clic</p>
+          <div class="dz-or">─── o ───</div>
+          <button class="btn btn-w" onclick="event.stopPropagation();document.getElementById('fi-sv').click()">Elegir archivo</button>
+        </div>
+        <input type="file" id="fi-sv" class="hidden" accept=".csv,.tsv" onchange="fileLoad(event,'sv')">
+      </div>
+
+      <div id="ct2-sv-paste" class="ctp">
+        <p style="font-size:12px;color:var(--muted);margin-bottom:8px">Copiá todas las celdas desde Google Sheets y pegá acá:</p>
+        <textarea class="paste-area" id="pa-sv" placeholder="Pegá acá (Tab entre columnas, Enter entre filas)..."></textarea>
+        <div style="margin-top:8px" class="btn-row">
+          <button class="btn btn-g" onclick="pasteLoad('sv')">Procesar datos pegados</button>
+        </div>
+      </div>
+
+      <div class="upload-state" id="us-sv">
+        <div class="us-row"><span>Filas detectadas</span><span class="us-ok" id="us-sv-rows">—</span></div>
+        <div class="us-row"><span>Columnas</span><span class="us-ok" id="us-sv-cols">—</span></div>
+      </div>
+    </div>
+
+    <div class="card" id="sv-col-card" style="display:none">
+      <div class="card-hd">Mapeá las columnas</div>
+      <p style="font-size:12px;color:var(--muted);margin-bottom:14px;line-height:1.6">
+        Seleccioná qué columna corresponde a cada variable. Para <strong style="color:var(--text)">departamento</strong>: como SurveyMonkey genera una columna por provincia, indicá cuál columna corresponde a cada provincia.
+      </p>
+      <div class="col-map-grid" id="sv-col-map"></div>
+
+      <div id="sv-filter-section"></div>
+
+      <div class="sep">Columnas de departamento (una por provincia)</div>
+      <p style="font-size:12px;color:var(--muted);margin-bottom:12px">El sistema detecta automáticamente cuál tiene valor para cada encuestado.</p>
+      <div id="prov-depto-map" class="col-map-grid"></div>
+
+      <div style="margin-top:18px" class="btn-row">
+        <button class="btn btn-g" onclick="processSurvey()">
+          <span id="btn-proc-txt">✓ Procesar y cargar</span>
+        </button>
+        <button class="btn btn-w" onclick="debugProvs()" title="Ver valores únicos de provincia en los datos cargados">🔍 Ver provincias detectadas</button>
+        <span id="sv-proc-msg" style="font-size:12px;color:var(--muted)"></span>
+      </div>
+      <div id="sv-debug-provs" style="display:none;margin-top:12px;background:var(--s2);border:1px solid var(--border2);border-radius:8px;padding:14px 16px">
+        <div style="font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-bottom:10px">Valores únicos de provincia en tus datos → cómo los interpreta el sistema</div>
+        <div id="sv-debug-body" style="font-family:var(--mono);font-size:12px;line-height:2"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════ CUOTAS ════ -->
+<div id="p-cuotas" class="panel">
+  <div class="pg-head">
+    <div class="pg-title">Configurar cuotas</div>
+    <div class="pg-sub">Editá directamente en la tabla — podés pegar desde Excel o Google Sheets</div>
+  </div>
+
+  <!-- params row -->
+  <div class="card" style="padding:16px 20px">
+    <div class="frow" style="gap:14px">
+      <div class="field"><label>Nombre</label><input type="text" id="q-name" value="Encuesta 2025" style="width:170px"></div>
+      <div class="field"><label>N objetivo</label><input type="number" id="q-n" value="2500" min="1" style="width:95px"></div>
+      <div class="field"><label>Alerta al %</label><input type="number" id="q-warn" value="80" min="1" max="99" style="width:75px"></div>
+      <div class="field">
+        <label>Grupos de edad</label>
+        <input type="text" id="q-ages" value="18-29,30-44,45-59,60+" style="width:210px">
+        <div class="note">Separados por coma. Último tramo con +</div>
+      </div>
+      <div class="field">
+        <label>Estratos detectados</label>
+        <input type="text" id="q-estratos" readonly placeholder="Cargá la tabla de referencia" style="width:220px;opacity:.6">
+      </div>
+      <button class="btn btn-w" onclick="buildMatrix()" style="align-self:flex-end">Generar tabla</button>
+    </div>
+  </div>
+
+  <!-- paste hint -->
+  <div id="q-paste-hint" style="display:none;background:var(--green-dim);border:1px solid #1a5a38;border-radius:8px;padding:11px 16px;margin-bottom:14px;font-size:12.5px;color:#7de8b4;line-height:1.6">
+    <strong>💡 Tip:</strong> Podés pegar datos copiados de Excel o Google Sheets directamente en la tabla.
+    Copiá un rango con los mismos valores por fila (grupo edad) y columna (estrato), seleccioná la primera celda del género que querés completar y pegá con <strong>Ctrl+V</strong>.
+  </div>
+
+  <!-- toolbar -->
+  <div id="q-toolbar" style="display:none;margin-bottom:12px" class="btn-row">
+    <button class="btn btn-g" onclick="saveQuotas()">✓ Guardar cuotas</button>
+    <button class="btn btn-w" onclick="distAuto()">Auto desde N</button>
+    <button class="btn btn-w" onclick="distEqual()">Distribuir igual</button>
+    <button class="btn btn-w" onclick="clearMatrix()">Limpiar tabla</button>
+    <span id="q-save-msg" style="font-size:12px;color:var(--green);margin-left:4px"></span>
+  </div>
+
+  <!-- THE TABLE -->
+  <div id="q-matrix"></div>
+</div>
+
+<!-- ════ ENCUESTAS ════ -->
+<div id="p-encuestas" class="panel">
+  <div class="pg-head">
+    <div>
+      <div class="pg-title">Encuestas guardadas</div>
+      <div class="pg-sub">Historial de relevamientos. Podés retomar cualquiera.</div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-g" onclick="saveCurrentSurvey()">+ Guardar encuesta actual</button>
+    </div>
+  </div>
+
+  <div id="enc-list">
+    <div class="empty-state" style="padding:48px">
+      <div style="font-size:32px;margin-bottom:10px">◈</div>
+      <p>No hay encuestas guardadas todavía.<br>Hacé clic en <strong style="color:var(--text)">+ Guardar encuesta actual</strong> para archivar el estado actual.</p>
+    </div>
+  </div>
+</div>
+
+<!-- Save survey modal -->
+<div id="save-survey-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:999;align-items:center;justify-content:center">
+  <div style="background:var(--s1);border:1px solid var(--border2);border-radius:14px;padding:28px 32px;width:420px;max-width:90vw">
+    <div style="font-family:var(--serif);font-size:20px;margin-bottom:6px">Guardar encuesta</div>
+    <div style="font-size:12.5px;color:var(--muted);margin-bottom:20px;line-height:1.6">Se guarda una foto del estado actual: casos, cuotas y gastos.</div>
+    <div class="field" style="margin-bottom:20px">
+      <label>Título de la encuesta</label>
+      <input type="text" id="enc-titulo" placeholder="Ej: Elecciones legislativas Oct 2025" style="width:100%">
+    </div>
+    <div class="field" style="margin-bottom:20px">
+      <label>Notas (opcional)</label>
+      <textarea id="enc-notas" style="width:100%;min-height:70px;background:var(--s2);border:1px solid var(--border2);border-radius:6px;color:var(--text);font-family:var(--sans);font-size:12.5px;padding:8px 11px;outline:none;resize:vertical" placeholder="Contexto, cliente, observaciones..."></textarea>
+    </div>
+    <div style="display:flex;gap:10px;justify-content:flex-end">
+      <button class="btn btn-w" onclick="closeSaveSurveyModal()">Cancelar</button>
+      <button class="btn btn-g" onclick="confirmSaveSurvey()">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════ PROVINCIAS ════ -->
+<div id="p-provincias" class="panel">
+  <div class="pg-head" style="margin-bottom:16px">
+    <div>
+      <div class="pg-title">Desglose por provincia</div>
+      <div class="pg-sub">Casos por provincia, género y grupo de edad</div>
+    </div>
+    <div class="btn-row">
+      <div class="field" style="flex-direction:row;align-items:center;gap:8px">
+        <label style="font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);white-space:nowrap">Ordenar por</label>
+        <select id="prov-sort" style="background:var(--s2);border:1px solid var(--border2);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:12px;padding:7px 10px;outline:none" onchange="renderProvincias()">
+          <option value="casos">Casos (mayor a menor)</option>
+          <option value="alfa">Alfabético</option>
+          <option value="pct">% jóvenes</option>
+        </select>
+      </div>
+      <input type="text" id="prov-search" placeholder="Buscar provincia..." style="background:var(--s2);border:1px solid var(--border2);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:12px;padding:7px 11px;outline:none;width:180px" oninput="renderProvincias()">
+    </div>
+  </div>
+
+  <!-- summary pills -->
+  <div id="prov-summary" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:18px"></div>
+
+  <!-- main table -->
+  <div id="prov-table-wrap"></div>
+</div>
+
+<!-- ════ AYUDA ════ -->
+<div id="p-ayuda" class="panel">
+  <div class="pg-head">
+    <div class="pg-title">Cómo usar el sistema</div>
+  </div>
+
+  <div class="card">
+    <div class="card-hd">Flujo de trabajo recomendado</div>
+    <div class="steps">
+      <div class="step">
+        <div class="step-n">1</div>
+        <div class="step-body">
+          <strong>Cargá la tabla de referencia de estratos</strong> (una sola vez). Andá a <em>Cargar datos → ① Tabla de estratos</em>. Exportá tu Google Sheet de referencia como CSV: <code>Archivo → Descargar → Valores separados por comas</code>. El CSV necesita 3 columnas: provincia, departamento, estrato.
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-n">2</div>
+        <div class="step-body">
+          <strong>Configurá las cuotas</strong> en la pestaña <em>Cuotas</em>. Definí los grupos de edad, N total y el objetivo por cada celda cruzada. Los estratos se detectan automáticamente de la tabla de referencia.
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-n">3</div>
+        <div class="step-body">
+          <strong>Cargá los datos de la encuesta</strong>: <em>Cargar datos → ② Datos de encuesta</em>. Exportá el sheet de SurveyMonkey como CSV o pegá los datos directamente. Mapeá las columnas de género, edad y provincia. Para los departamentos: SurveyMonkey genera una columna por provincia — indicá qué columna corresponde a cada una.
+        </div>
+      </div>
+      <div class="step">
+        <div class="step-n">4</div>
+        <div class="step-body">
+          <strong>Actualizaciones periódicas</strong>: para actualizar los datos, simplemente re-exportá el CSV de SurveyMonkey y volvé a cargarlo. Podés reemplazar todos los datos o acumularlos. El sistema acepta 2500–3000 filas sin problema.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-hd">Fórmulas equivalentes en Google Sheets</div>
+    <p class="formula-note">Si querés replicar la lógica en tu propio sheet:</p>
+
+    <div class="sep">Asignar estrato (ÍNDICE + COINCIDIR)</div>
+    <div class="formula-block">=IFERROR(INDEX(Ref!$C:$C,MATCH(D2&"|"&E2,Ref!$A:$A&"|"&Ref!$B:$B,0)),"Sin estrato")</div>
+    <p class="formula-note">D2 = provincia, E2 = departamento. Col C en hoja Ref = estrato.</p>
+
+    <div class="sep">Agrupar edad automáticamente</div>
+    <div class="formula-block">=IFS(C2&lt;18,"Menor",C2&lt;=29,"18-29",C2&lt;=44,"30-44",C2&lt;=59,"45-59",C2&gt;=60,"60+")</div>
+
+    <div class="sep">Contar casos por celda cruzada</div>
+    <div class="formula-block">=COUNTIFS(Datos!$B:$B,A2,Datos!$D:$D,B2,Datos!$F:$F,C2)</div>
+    <p class="formula-note">B=Género, D=GrupoEdad, F=Estrato. A2/B2/C2 son los valores objetivo en la hoja Cuotas.</p>
+
+    <div class="sep">Semáforo de estado</div>
+    <div class="formula-block">=IFS(D2=0,"⬜ Sin iniciar",D2/E2&lt;0.8,"🟢 En curso",D2/E2&lt;1,"🟡 Por cerrar",D2&gt;=E2,"🔴 Completa")</div>
+  </div>
+</div>
+
+</div><!-- /main -->
+</div><!-- /shell -->
+
+<script>
+// ══════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════
+const ST = {
+  name:'Encuesta 2025', n:2500, warnPct:80,
+  ageGroups:['18-29','30-44','45-59','60+'],
+  ageBounds:[[18,29],[30,44],[45,59],[60,120]],
+  estratos:[],
+  quotas:{},
+  cases:[],
+  refTable:[],
+  nextId:1,
+  surveys:[],
+  cost:null,
+};
+
+function save(){
+  try{
+    const x={...ST};
+    localStorage.setItem('cq3',JSON.stringify(x));
+    // Push to Firebase if configured
+    if(window._fbRef && window._fbSet && window.firebaseConfig?.apiKey !== 'PASTE_API_KEY'){
+      window._suppressRemote = true;
+      window._fbSet(window._fbRef, JSON.stringify(x))
+        .then(()=>{ showSyncStatus('ok','● Guardado'); setTimeout(()=>window._suppressRemote=false, 1500); })
+        .catch(e=>{ showSyncStatus('err','● Error sync'); window._suppressRemote=false; });
+    }
+  }catch(e){}
+}
+function load(){try{const d=localStorage.getItem('cq3');if(d)Object.assign(ST,JSON.parse(d));}catch(e){}}
+
+// ══════════════════════════════════════════
+// FIREBASE SYNC STATUS
+// ══════════════════════════════════════════
+function showSyncStatus(type, msg){
+  const el = document.getElementById('sync-status');
+  if(!el) return;
+  const colors = { ok:'#5bdb8a', err:'#f08080', sync:'#f0c060', off:'rgba(255,255,255,.25)' };
+  el.textContent = msg;
+  el.style.color = colors[type] || colors.off;
+}
+
+// Check if Firebase is configured
+window.firebaseConfig = { apiKey: '' }; // will be overwritten by module
+setTimeout(()=>{
+  if(!window._fbReady) showSyncStatus('off','● Sin configurar');
+}, 3000);
+
+// ══════════════════════════════════════════
+// NAV
+// ══════════════════════════════════════════
+document.querySelectorAll('.nav-btn').forEach(b=>{
+  b.addEventListener('click',()=>{
+    document.querySelectorAll('.nav-btn').forEach(x=>x.classList.remove('on'));
+    b.classList.add('on');
+    document.querySelectorAll('.panel').forEach(x=>x.classList.remove('on'));
+    document.getElementById('p-'+b.dataset.p).classList.add('on');
+  });
+});
+
+// inner tabs (load panel)
+document.querySelectorAll('.ctab[data-ct]').forEach(b=>{
+  b.addEventListener('click',()=>{
+    const grp = b.closest('.card, .panel');
+    grp.querySelectorAll('.ctab[data-ct]').forEach(x=>x.classList.remove('on'));
+    b.classList.add('on');
+    grp.querySelectorAll('.ctp').forEach(x=>x.classList.remove('on'));
+    const el = document.getElementById('ct-'+b.dataset.ct);
+    if(el) el.classList.add('on');
+  });
+});
+// sub-sub tabs (drop/paste)
+document.querySelectorAll('.ctab[data-ct2]').forEach(b=>{
+  b.addEventListener('click',()=>{
+    const grp = b.closest('.card');
+    grp.querySelectorAll('.ctab[data-ct2]').forEach(x=>x.classList.remove('on'));
+    b.classList.add('on');
+    grp.querySelectorAll('.ctp').forEach(x=>x.classList.remove('on'));
+    const el = document.getElementById('ct2-'+b.dataset.ct2);
+    if(el) el.classList.add('on');
+  });
+});
+
+function goPanel(p){
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.toggle('on',b.dataset.p===p));
+  document.querySelectorAll('.panel').forEach(x=>x.classList.remove('on'));
+  document.getElementById('p-'+p).classList.add('on');
+}
+
+// ══════════════════════════════════════════
+// HELPERS
+// ══════════════════════════════════════════
+function norm(s){
+  return String(s||'').toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+}
+function getAgeGrp(age){
+  const a=parseInt(age);
+  for(let i=0;i<ST.ageBounds.length;i++){
+    const[lo,hi]=ST.ageBounds[i];
+    if(a>=lo&&a<=hi)return ST.ageGroups[i];
+  }
+  return '?';
+}
+function parseAgeBounds(grps){
+  return grps.map(g=>{
+    if(g.includes('+'))return[parseInt(g),120];
+    const p=g.split('-').map(Number);
+    return[p[0],p[1]];
+  });
+}
+function ck(g,ag,e){return `${g}||${ag}||${e}`;}
+function cParts(k){return k.split('||');}
+function countCell(g,ag,e){return ST.cases.filter(c=>c.gen===g&&c.ageGrp===ag&&c.estrato===e).length;}
+// Province alias map: any of these strings → canonical key used in refTable
+const PROV_ALIASES = {
+  // CABA — many possible forms from SurveyMonkey
+  'caba': 'caba',
+  'ciudad autonoma de buenos aires': 'caba',
+  'ciudad de buenos aires': 'caba',
+  'capital federal': 'caba',
+  'buenos aires ciudad': 'caba',
+  'ciudad autonoma': 'caba',
+  'c.a.b.a.': 'caba',
+  'c.a.b.a': 'caba',
+  // Buenos Aires provincia
+  'buenos aires': 'buenos aires',
+  'buenos aires provincia': 'buenos aires',
+  'prov. de buenos aires': 'buenos aires',
+  'provincia de buenos aires': 'buenos aires',
+  // Santiago del Estero
+  'stgo del estero': 'stgo del estero',
+  'santiago del estero': 'stgo del estero',
+  // Tierra del Fuego
+  'tierra del fuego': 'tierra del fuego',
+  'tierra del fuego, antartida e islas del atlantico sur': 'tierra del fuego',
+  'tierra del fuego antartida': 'tierra del fuego',
+  // Entre Rios
+  'entre rios': 'entre rios',
+  'entre ríos': 'entre rios',
+  // Neuquén
+  'neuquen': 'neuquen',
+  'neuquén': 'neuquen',
+  // Córdoba
+  'cordoba': 'cordoba',
+  'córdoba': 'cordoba',
+  // Tucumán
+  'tucuman': 'tucuman',
+  'tucumán': 'tucuman',
+  // Río Negro
+  'rio negro': 'rio negro',
+  'río negro': 'rio negro',
+  // Misiones
+  'misiones': 'misiones',
+  // Corrientes
+  'corrientes': 'corrientes',
+  // Santa Fe
+  'santa fe': 'santa fe',
+  // Mendoza
+  'mendoza': 'mendoza',
+  // Salta
+  'salta': 'salta',
+  // Jujuy
+  'jujuy': 'jujuy',
+  // Chaco
+  'chaco': 'chaco',
+  // Formosa
+  'formosa': 'formosa',
+  // Catamarca
+  'catamarca': 'catamarca',
+  // La Rioja
+  'la rioja': 'la rioja',
+  // San Juan
+  'san juan': 'san juan',
+  // San Luis
+  'san luis': 'san luis',
+  // La Pampa
+  'la pampa': 'la pampa',
+  // Chubut
+  'chubut': 'chubut',
+  // Santa Cruz
+  'santa cruz': 'santa cruz',
+};
+
+function normProv(s){
+  if(!s) return '';
+  const n = norm(s);
+  return PROV_ALIASES[n] || n;
+}
+
+// Provincias donde el estrato se asigna por provincia completa, sin importar el depto
+const PROV_FIXED_ESTRATO = {
+  'caba': '1',
+};
+
+function lookupEst(prov,depto){
+  if(!prov) return null;
+  const pn=normProv(prov);
+
+  // Fixed-estrato provinces: assign regardless of depto
+  if(PROV_FIXED_ESTRATO[pn] !== undefined) return PROV_FIXED_ESTRATO[pn];
+
+  if(!depto) return null;
+  const dn=norm(depto);
+  // exact match first
+  let r=ST.refTable.find(x=>normProv(x.prov)===pn&&norm(x.depto)===dn);
+  // fallback: partial depto match (handles slight name differences)
+  if(!r) r=ST.refTable.find(x=>normProv(x.prov)===pn&&(norm(x.depto).includes(dn)||dn.includes(norm(x.depto))));
+  return r?r.estrato:null;
+}
+
+// ══════════════════════════════════════════
+// CSV PARSING (handles both comma and tab)
+// ══════════════════════════════════════════
+function parseDelimited(text){
+  // detect delimiter: if more tabs than commas in first line, use tab
+  const firstLine = text.split('\n')[0]||'';
+  const delim = (firstLine.split('\t').length > firstLine.split(',').length) ? '\t' : ',';
+  const lines = text.split('\n').filter(l=>l.trim());
+  return lines.map(line=>{
+    if(delim==='\t') return line.split('\t').map(s=>s.trim().replace(/^"|"$/g,''));
+    // CSV: handle quoted fields
+    const cols=[];let cur='',inQ=false;
+    for(let i=0;i<line.length;i++){
+      const ch=line[i];
+      if(ch==='"'){inQ=!inQ;continue;}
+      if(ch===','&&!inQ){cols.push(cur.trim());cur='';continue;}
+      cur+=ch;
+    }
+    cols.push(cur.trim());
+    return cols;
+  });
+}
+
+function findColIdx(headers,kws){
+  return headers.findIndex(h=>kws.some(k=>norm(h).includes(k)));
+}
+
+// ══════════════════════════════════════════
+// DRAG & DROP
+// ══════════════════════════════════════════
+function dzOver(e,id){e.preventDefault();document.getElementById(id).classList.add('drag');}
+function dzOut(id){document.getElementById(id).classList.remove('drag');}
+function dzDrop(e,type){
+  e.preventDefault();
+  dzOut('dz-'+type);
+  const file=e.dataTransfer.files[0];
+  if(file) readFile(file,type);
+}
+function fileLoad(e,type){const f=e.target.files[0];if(f)readFile(f,type);e.target.value='';}
+
+function readFile(file,type){
+  const reader=new FileReader();
+  reader.onload=ev=>handleRawText(ev.target.result,type);
+  reader.readAsText(file,'UTF-8');
+}
+
+function pasteLoad(type){
+  const el=document.getElementById('pa-'+type);
+  const text=el.value.trim();
+  if(!text){alert('Pegá los datos primero.');return;}
+  handleRawText(text,type);
+}
+
+function handleRawText(text,type){
+  const rows=parseDelimited(text);
+  if(rows.length<2){alert('No se detectaron datos suficientes.');return;}
+  if(type==='ref') prepareRefCols(rows);
+  else prepareSvCols(rows);
+}
+
+// ── REF table column mapping ──
+let _refRows=[];
+function prepareRefCols(rows){
+  _refRows=rows;
+  const headers=rows[0];
+
+  const usRowEl=document.getElementById('us-ref-rows');
+  const usEl=document.getElementById('us-ref');
+  if(usRowEl) usRowEl.textContent=rows.length-1;
+  if(usEl) usEl.classList.add('show');
+
+  const card=document.getElementById('ref-col-card');
+  if(!card) return;
+  card.style.display='block';
+  const container=document.getElementById('ref-col-map');
+  if(!container) return;
+
+  const fields=[
+    {id:'rc-prov',label:'Columna Provincia',kws:['provincia','province','prov']},
+    {id:'rc-depto',label:'Columna Departamento',kws:['departamento','depto','localidad','municipio','partido']},
+    {id:'rc-est',label:'Columna Estrato',kws:['estrato','cluster','grupo','strato']},
+  ];
+
+  container.innerHTML=fields.map(f=>{
+    const guess=findColIdx(headers,f.kws);
+    return `<div class="field">
+      <label>${f.label}</label>
+      <select id="${f.id}">
+        ${headers.map((h,i)=>`<option value="${i}" ${i===guess?'selected':''}>${h||'(vacío)'}</option>`).join('')}
+      </select>
+    </div>`;
+  }).join('');
+}
+
+function applyRef(){
+  if(!_refRows.length){alert('Cargá el archivo primero.');return;}
+  const rcProv=document.getElementById('rc-prov');
+  const rcDepto=document.getElementById('rc-depto');
+  const rcEst=document.getElementById('rc-est');
+  if(!rcProv||!rcDepto||!rcEst){alert('Primero cargá el archivo para poder mapear columnas.');return;}
+  const pi=parseInt(rcProv.value);
+  const di=parseInt(rcDepto.value);
+  const ei=parseInt(rcEst.value);
+
+  ST.refTable=_refRows.slice(1)
+    .filter(r=>r[pi]&&r[di]&&r[ei])
+    .map(r=>({prov:r[pi].trim(),depto:r[di].trim(),estrato:r[ei].trim()}));
+
+  ST.estratos=[...new Set(ST.refTable.map(r=>r.estrato))].sort();
+
+  const qEst=document.getElementById('q-estratos');
+  if(qEst) qEst.value=ST.estratos.join(', ');
+
+  const provs=[...new Set(ST.refTable.map(r=>r.prov))].sort();
+
+  const rRows=document.getElementById('us-ref-rows');
+  const rEst=document.getElementById('us-ref-est');
+  const rProv=document.getElementById('us-ref-prov');
+  if(rRows) rRows.textContent=ST.refTable.length;
+  if(rEst) rEst.textContent=ST.estratos.length;
+  if(rProv) rProv.textContent=provs.length;
+
+  const sel=document.getElementById('m-prov');
+  if(sel){
+    sel.innerHTML=provs.map(p=>`<option value="${p}">${p}</option>`).join('');
+    fillDepto();
+  }
+
+  const msg=document.getElementById('ref-apply-msg');
+  if(msg){
+    msg.innerHTML=`✓ ${ST.refTable.length} registros &nbsp;·&nbsp; ${ST.estratos.length} estratos &nbsp;·&nbsp; ${provs.length} provincias:<br>
+    <span style="font-family:var(--mono);font-size:11px;opacity:.7">${provs.join(' · ')}</span>`;
+  }
+  save();
+}
+
+// ── Survey data column mapping ──
+let _svRows=[];
+function prepareSvCols(rows){
+  _svRows=rows;
+  const headers=rows[0];
+
+  const usRows=document.getElementById('us-sv-rows');
+  const usCols=document.getElementById('us-sv-cols');
+  const usEl=document.getElementById('us-sv');
+  if(usRows) usRows.textContent=rows.length-1;
+  if(usCols) usCols.textContent=headers.length;
+  if(usEl) usEl.classList.add('show');
+
+  const card=document.getElementById('sv-col-card');
+  if(!card){return;}
+  card.style.display='block';
+
+  // Main cols
+  const mainFields=[
+    {id:'sc-gen',label:'Columna Género',kws:['genero','género','sexo','gender']},
+    {id:'sc-edad',label:'Columna Edad',kws:['edad','age','años']},
+    {id:'sc-prov',label:'Columna Provincia',kws:['provincia','province','prov']},
+    {id:'sc-id',label:'ID del caso (opcional)',kws:['id','respondent','encuestado'],optional:true},
+  ];
+  const mc=document.getElementById('sv-col-map');
+  if(!mc) return;
+  mc.innerHTML=mainFields.map(f=>{
+    const guess=findColIdx(headers,f.kws);
+    return `<div class="field">
+      <label>${f.label}</label>
+      <select id="${f.id}">
+        ${f.optional?'<option value="">(ninguna)</option>':''}
+        ${headers.map((h,i)=>`<option value="${i}" ${i===guess?'selected':''}>${h||'(col '+(i+1)+')'}</option>`).join('')}
+      </select>
+    </div>`;
+  }).join('');
+
+  // Eligibility filter UI
+  const filterKws=['candidatos','espacio','vot','legislativ','octubre'];
+  const filterGuess=headers.findIndex(h=>filterKws.some(k=>norm(h).includes(k)));
+  const filterSection=document.getElementById('sv-filter-section');
+  if(filterSection){
+    filterSection.innerHTML=`
+      <div class="sep">Filtro de elegibilidad</div>
+      <div style="background:var(--amber-dim);border:1px solid #5a3a10;border-radius:8px;padding:12px 14px;margin-bottom:14px;font-size:12.5px;color:#f0c060;line-height:1.6">
+        Solo se cuentan como casos válidos los encuestados que respondieron la pregunta de voto.
+        Los que tienen <strong>"not answered"</strong> quedan excluidos del control de cuotas.
+      </div>
+      <div class="frow" style="align-items:flex-end;gap:12px;flex-wrap:wrap">
+        <div class="field" style="flex:1;min-width:260px">
+          <label>Columna de pregunta de voto</label>
+          <select id="sc-filter-col">
+            <option value="">(no filtrar)</option>
+            ${headers.map((h,i)=>`<option value="${i}" ${i===filterGuess?'selected':''}>${h||'(col '+(i+1)+')'}</option>`).join('')}
+          </select>
+        </div>
+        <div class="field" style="width:180px">
+          <label>Valor a excluir</label>
+          <input type="text" id="sc-filter-val" value="not answered" placeholder="not answered">
+          <div class="note">Sin distinción de mayúsculas</div>
+        </div>
+      </div>`;
+  }
+
+  // Build prov-depto map AFTER selects exist in DOM
+  buildProvDeptoMap(headers, rows);
+}
+
+function buildProvDeptoMap(headers, rows){
+  // Get provinces from ref table (preferred) — no need to read DOM here
+  let provs=[];
+  if(ST.refTable.length>0){
+    provs=[...new Set(ST.refTable.map(r=>r.prov))].sort();
+  } else {
+    // fallback: guess prov column index from headers directly
+    const pi=findColIdx(headers.map(h=>norm(h)),['provincia','province','prov']);
+    const safeIdx=pi>=0?pi:0;
+    provs=[...new Set(rows.slice(1).map(r=>(r[safeIdx]||'').trim()).filter(Boolean))].sort();
+  }
+
+  const container=document.getElementById('prov-depto-map');
+  if(!container) return;
+  container.innerHTML=provs.map(prov=>{
+    const normProv=norm(prov).replace(/\s/g,'').substring(0,6);
+    const guess=headers.findIndex(h=>norm(h).replace(/\s/g,'').includes(normProv));
+    return `<div class="field">
+      <label>${prov}</label>
+      <select id="pd-${sanitId(prov)}" data-prov="${prov}">
+        <option value="">(no tiene columna)</option>
+        ${headers.map((h,i)=>`<option value="${i}" ${i===guess?'selected':''}>${h||'(col '+(i+1)+')'}</option>`).join('')}
+      </select>
+    </div>`;
+  }).join('');
+}
+
+function sanitId(s){return s.replace(/[^a-zA-Z0-9]/g,'_');}
+
+function processSurvey(){
+  if(!_svRows.length){alert('Cargá los datos primero.');return;}
+
+  const genIdx=parseInt(document.getElementById('sc-gen').value);
+  const edadIdx=parseInt(document.getElementById('sc-edad').value);
+  const provIdx=parseInt(document.getElementById('sc-prov').value);
+  const idVal=document.getElementById('sc-id').value;
+  const idIdx=idVal!==''?parseInt(idVal):-1;
+
+  // Build prov→colIdx map
+  const provColMap={};
+  document.querySelectorAll('[data-prov]').forEach(sel=>{
+    if(sel.value!=='')provColMap[sel.dataset.prov]=parseInt(sel.value);
+  });
+
+  // Eligibility filter
+  const filterColEl=document.getElementById('sc-filter-col');
+  const filterValEl=document.getElementById('sc-filter-val');
+  const filterColIdx=filterColEl&&filterColEl.value!==''?parseInt(filterColEl.value):-1;
+  const filterExclude=filterValEl?(filterValEl.value||'not answered').trim().toLowerCase():'not answered';
+
+  let added=0,noEst=0,excluded=0;
+  const newCases=[];
+
+  _svRows.slice(1).forEach((row,ri)=>{
+    const gen=(row[genIdx]||'').trim();
+    const edadRaw=row[edadIdx];
+    const prov=(row[provIdx]||'').trim();
+    if(!gen||!edadRaw)return;
+
+    // Eligibility check
+    if(filterColIdx>=0){
+      const resp=(row[filterColIdx]||'').trim().toLowerCase();
+      if(resp===filterExclude||resp===''){excluded++;return;}
+    }
+    const edad=parseInt(edadRaw);
+    if(isNaN(edad))return;
+
+    // Find departamento: use prov's mapped column
+    let depto='';
+    if(provColMap[prov]!==undefined){
+      depto=(row[provColMap[prov]]||'').trim();
+    }
+    // Fallback: scan all prov columns for a match
+    if(!depto){
+      for(const[p,ci]of Object.entries(provColMap)){
+        if(norm(p)===norm(prov)&&(row[ci]||'').trim()){
+          depto=(row[ci]||'').trim();
+          break;
+        }
+      }
+    }
+
+    const estrato=lookupEst(prov,depto)||'?';
+    if(estrato==='?')noEst++;
+    const ageGrp=getAgeGrp(edad);
+    const key=ck(gen,ageGrp,estrato);
+    const id=idIdx>=0?(row[idIdx]||`R${String(ST.nextId+ri).padStart(4,'0')}`):
+                       `R${String(ST.nextId+ri).padStart(4,'0')}`;
+    newCases.push({id,gen,edad,ageGrp,prov,depto,estrato,key,ts:Date.now()});
+    added++;
+  });
+
+  ST.nextId+=added;
+  // Replace or append — replace if more than 80% overlap to handle re-uploads
+  ST.cases=[...ST.cases,...newCases];
+  save();
+
+  const excMsg=excluded>0?` · ${excluded} excluidos (sin respuesta de voto)`:'';  
+  const estMsg=noEst>0?` · ⚠ ${noEst} sin estrato`:'';
+  const procMsg=document.getElementById('sv-proc-msg');
+  if(procMsg) procMsg.textContent=`✓ ${added} casos válidos${estMsg}${excMsg}`;
+
+  renderAll();
+  if(noEst>0) alert(`⚠ ${noEst} casos no encontraron estrato en la tabla de referencia.\n\nVerificá que los nombres de provincia/departamento coincidan entre ambos sheets.`);
+}
+
+// ══════════════════════════════════════════
+// QUOTA MATRIX
+// ══════════════════════════════════════════
+function readParams(){
+  const agesRaw=document.getElementById('q-ages').value.split(',').map(s=>s.trim()).filter(Boolean);
+  if(agesRaw.length) { ST.ageGroups=agesRaw; ST.ageBounds=parseAgeBounds(agesRaw); }
+  ST.name=document.getElementById('q-name').value||ST.name;
+  ST.n=parseInt(document.getElementById('q-n').value)||ST.n;
+  ST.warnPct=parseInt(document.getElementById('q-warn').value)||ST.warnPct;
+}
+
+function buildMatrix(){
+  readParams();
+  if(!ST.estratos.length){alert('Cargá primero la tabla de referencia para detectar los estratos.');return;}
+
+  const generos=['Masculino','Femenino'];
+  const estratos=ST.estratos;
+  const ages=ST.ageGroups;
+  let html='';
+
+  generos.forEach((g,gi)=>{
+    const tagCls=g==='Masculino'?'tag-m':'tag-f';
+    html+=`<div class="qtable-wrap">
+      <div class="qtable-gender-hd">
+        <span class="qtable-gender-tag ${tagCls}">${g}</span>
+        <span class="qtable-gender-label">Objetivos por grupo de edad y estrato</span>
+      </div>
+      <div class="qt-scroll">
+      <table class="qtable" id="qtable-${gi}">
+        <thead>
+          <tr>
+            <th style="text-align:left">Grupo edad</th>
+            ${estratos.map(e=>`<th class="th-est">Estrato ${e}</th>`).join('')}
+            <th style="color:var(--green)">Total fila</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${ages.map((ag,ri)=>`
+          <tr>
+            <td>${ag}</td>
+            ${estratos.map((e,ci)=>{
+              const key=ck(g,ag,e);
+              const val=ST.quotas[key]||'';
+              return `<td><input type="number" min="0"
+                class="qcell${val?' has-val':''}"
+                data-key="${key}" data-g="${gi}" data-r="${ri}" data-c="${ci}"
+                value="${val}" placeholder="0"
+                oninput="onCellInput(this)"
+                onkeydown="onCellKey(event,this)"
+                onpaste="onCellPaste(event,this,${gi})"
+              ></td>`;
+            }).join('')}
+            <td class="totcol" id="rowsum-${gi}-${ri}">—</td>
+          </tr>`).join('')}
+        </tbody>
+        <tfoot>
+          <tr>
+            <td>Total col.</td>
+            ${estratos.map((_,ci)=>`<td class="tot-val" id="colsum-${gi}-${ci}">—</td>`).join('')}
+            <td class="tot-val" id="grandsum-${gi}">—</td>
+          </tr>
+        </tfoot>
+      </table>
+      </div>
+    </div>`;
+  });
+
+  // Grand total across all
+  html+=`<div class="qtable-grand-total" id="qt-grand">
+    <span><span class="qt-gt-label">Total cuotas configuradas</span><span class="qt-gt-val" id="gt-total">0</span></span>
+    <div class="qt-gt-sep"></div>
+    <span><span class="qt-gt-label">N objetivo</span><span class="qt-gt-val" style="color:var(--amber)" id="gt-n">${ST.n.toLocaleString('es-AR')}</span></span>
+    <span id="gt-diff" style="font-size:12px;color:var(--muted)"></span>
+  </div>`;
+
+  document.getElementById('q-matrix').innerHTML=html;
+  document.getElementById('q-toolbar').style.display='flex';
+  document.getElementById('q-paste-hint').style.display='block';
+  updateMatrixTotals();
+}
+
+function onCellInput(inp){
+  inp.classList.toggle('has-val', !!inp.value);
+  updateMatrixTotals();
+}
+
+function updateMatrixTotals(){
+  const generos=['Masculino','Femenino'];
+  const ages=ST.ageGroups;
+  const estratos=ST.estratos;
+  let grandTotal=0;
+
+  generos.forEach((g,gi)=>{
+    let gTotal=0;
+    ages.forEach((ag,ri)=>{
+      let rowSum=0;
+      estratos.forEach((e,ci)=>{
+        const inp=document.querySelector(`[data-g="${gi}"][data-r="${ri}"][data-c="${ci}"]`);
+        const v=inp?parseInt(inp.value)||0:ST.quotas[ck(g,ag,e)]||0;
+        rowSum+=v;
+      });
+      const rsEl=document.getElementById(`rowsum-${gi}-${ri}`);
+      if(rsEl) rsEl.textContent=rowSum>0?rowSum.toLocaleString('es-AR'):'—';
+      gTotal+=rowSum;
+    });
+    estratos.forEach((e,ci)=>{
+      let colSum=0;
+      ages.forEach((ag,ri)=>{
+        const inp=document.querySelector(`[data-g="${gi}"][data-r="${ri}"][data-c="${ci}"]`);
+        colSum+=inp?parseInt(inp.value)||0:0;
+      });
+      const csEl=document.getElementById(`colsum-${gi}-${ci}`);
+      if(csEl) csEl.textContent=colSum>0?colSum.toLocaleString('es-AR'):'—';
+    });
+    const gsEl=document.getElementById(`grandsum-${gi}`);
+    if(gsEl) gsEl.textContent=gTotal>0?gTotal.toLocaleString('es-AR'):'—';
+    grandTotal+=gTotal;
+  });
+
+  const gtEl=document.getElementById('gt-total');
+  if(gtEl) gtEl.textContent=grandTotal.toLocaleString('es-AR');
+  const gnEl=document.getElementById('gt-n');
+  if(gnEl) gnEl.textContent=ST.n.toLocaleString('es-AR');
+  const diffEl=document.getElementById('gt-diff');
+  if(diffEl){
+    const diff=grandTotal-ST.n;
+    if(grandTotal===0) diffEl.textContent='';
+    else if(diff===0) diffEl.textContent='✓ Coincide con el N objetivo';
+    else if(diff>0) diffEl.textContent=`⚠ ${diff.toLocaleString('es-AR')} más que el N objetivo`;
+    else diffEl.textContent=`${Math.abs(diff).toLocaleString('es-AR')} por asignar`;
+    diffEl.style.color=diff===0?'var(--green)':diff>0?'var(--red)':'var(--muted)';
+  }
+}
+
+// Keyboard nav between cells
+function onCellKey(e, inp){
+  const gi=parseInt(inp.dataset.g), r=parseInt(inp.dataset.r), c=parseInt(inp.dataset.c);
+  const nr=ST.ageGroups.length, nc=ST.estratos.length;
+  let nr2=r, nc2=c, ng2=gi;
+
+  if(e.key==='Tab'||e.key==='ArrowRight'){
+    e.preventDefault();
+    if(c<nc-1) nc2=c+1;
+    else if(r<nr-1){nc2=0;nr2=r+1;}
+    else if(gi<1){ng2=gi+1;nc2=0;nr2=0;}
+  } else if(e.key==='ArrowLeft'){
+    if(c>0) nc2=c-1;
+    else if(r>0){nc2=nc-1;nr2=r-1;}
+  } else if(e.key==='Enter'||e.key==='ArrowDown'){
+    e.preventDefault();
+    if(r<nr-1) nr2=r+1;
+    else if(gi<1){ng2=gi+1;nr2=0;}
+  } else if(e.key==='ArrowUp'){
+    if(r>0) nr2=r-1;
+    else if(gi>0){ng2=gi-1;nr2=ST.ageGroups.length-1;}
+  } else return;
+
+  const next=document.querySelector(`[data-g="${ng2}"][data-r="${nr2}"][data-c="${nc2}"]`);
+  if(next) next.focus();
+}
+
+// Paste from clipboard (Excel / Sheets → tab-separated rows)
+function onCellPaste(e, inp, gi){
+  e.preventDefault();
+  const text=(e.clipboardData||window.clipboardData).getData('text');
+  if(!text) return;
+  const rows=text.split('\n').filter(r=>r.trim()).map(r=>r.split('\t'));
+  const startR=parseInt(inp.dataset.r), startC=parseInt(inp.dataset.c);
+  const nr=ST.ageGroups.length, nc=ST.estratos.length;
+
+  rows.forEach((row,dr)=>{
+    row.forEach((val,dc)=>{
+      const r2=startR+dr, c2=startC+dc;
+      if(r2>=nr) return;
+      // if c overflows, wrap to next gender table
+      let g2=gi, cc=c2;
+      if(cc>=nc){ g2=gi+1; cc=cc-nc; }
+      if(g2>1||cc>=nc) return;
+      const cell=document.querySelector(`[data-g="${g2}"][data-r="${r2}"][data-c="${cc}"]`);
+      if(cell){
+        const n=parseInt(val.replace(/[^0-9]/g,''))||0;
+        cell.value=n||'';
+        cell.classList.toggle('has-val',!!cell.value);
+        cell.classList.add('pasted');
+        setTimeout(()=>cell.classList.remove('pasted'),500);
+      }
+    });
+  });
+  updateMatrixTotals();
+}
+
+function distEqual(){
+  const inp=document.querySelectorAll('[data-key]');
+  if(!inp.length){buildMatrix();return;}
+  const v=Math.round(ST.n/inp.length);
+  inp.forEach(i=>{i.value=v;i.classList.add('has-val');});
+  updateMatrixTotals();
+}
+
+function distAuto(){
+  const inp=document.querySelectorAll('[data-key]');
+  if(!inp.length){buildMatrix();return;}
+  const perGender=ST.n/2;
+  const perCell=Math.round(perGender/(ST.ageGroups.length*ST.estratos.length));
+  inp.forEach(i=>{i.value=perCell;i.classList.add('has-val');});
+  updateMatrixTotals();
+}
+
+function clearMatrix(){
+  if(!confirm('¿Limpiar todos los valores de la tabla?')) return;
+  document.querySelectorAll('[data-key]').forEach(i=>{i.value='';i.classList.remove('has-val');});
+  updateMatrixTotals();
+}
+
+function saveQuotas(){
+  readParams();
+  document.querySelectorAll('[data-key]').forEach(inp=>{
+    ST.quotas[inp.dataset.key]=parseInt(inp.value)||0;
+  });
+  save();
+  renderAll();
+  const msg=document.getElementById('q-save-msg');
+  if(msg){ msg.textContent='✓ Guardado'; setTimeout(()=>msg.textContent='',2500); }
+}
+
+// ══════════════════════════════════════════
+// MANUAL ADD
+// ══════════════════════════════════════════
+function fillDepto(){
+  const prov=document.getElementById('m-prov').value;
+  const deptos=ST.refTable.filter(r=>r.prov===prov).map(r=>r.depto).sort();
+  document.getElementById('m-depto').innerHTML=deptos.map(d=>`<option>${d}</option>`).join('');
+}
+
+function addManual(){
+  const gen=document.getElementById('m-gen').value;
+  const edad=parseInt(document.getElementById('m-edad').value);
+  const prov=document.getElementById('m-prov').value;
+  const depto=document.getElementById('m-depto').value;
+  const idRaw=document.getElementById('m-id').value.trim();
+
+  if(!edad||isNaN(edad)){alert('Ingresá una edad válida.');return;}
+  if(!prov){alert('Cargá la tabla de referencia primero.');return;}
+
+  const estrato=lookupEst(prov,depto)||'?';
+  const ageGrp=getAgeGrp(edad);
+  const key=ck(gen,ageGrp,estrato);
+  const target=ST.quotas[key]||0;
+  if(target>0&&countCell(gen,ageGrp,estrato)>=target){
+    if(!confirm(`⚠ Cuota completa para ${gen}/${ageGrp}/E${estrato}. ¿Agregás de todas formas?`))return;
+  }
+  ST.cases.push({id:idRaw||`R${String(ST.nextId).padStart(4,'0')}`,gen,edad,ageGrp,prov,depto,estrato,key,ts:Date.now()});
+  ST.nextId++;
+  document.getElementById('m-edad').value='';
+  document.getElementById('m-id').value='';
+  save();renderAll();
+}
+
+// ══════════════════════════════════════════
+// RENDER
+// ══════════════════════════════════════════
+function renderAll(){
+  renderDash();
+  renderTable();
+  renderSidebar();
+  renderEncuestas();
+  renderProvincias();
+  // update jovenes count
+  const jEl=document.getElementById('sum-jovenes');
+  if(jEl) jEl.textContent=countJovenes().toLocaleString('es-AR');
+  updateCost();
+}
+
+let dashExpanded = {};  // track collapsed estratos
+
+function toggleDashView(){
+  const grid = document.getElementById('dash-qgrid');
+  const btn = document.getElementById('btn-view-toggle');
+  if(grid.classList.contains('dash-compact')){
+    grid.classList.remove('dash-compact');
+    btn.textContent='Vista compacta';
+  } else {
+    grid.classList.add('dash-compact');
+    btn.textContent='Vista expandida';
+  }
+}
+
+function toggleEstrato(id){
+  const body = document.getElementById('estrato-body-'+id);
+  const arrow = document.getElementById('estrato-arrow-'+id);
+  if(!body) return;
+  if(body.style.display==='none'){
+    body.style.display='block';
+    if(arrow) arrow.textContent='▾';
+  } else {
+    body.style.display='none';
+    if(arrow) arrow.textContent='▸';
+  }
+}
+
+function cellColor(pf, warnPct){
+  if(pf<=0) return 'hc-empty';
+  if(pf>=1) return 'hc-full';
+  if(pf*100>=warnPct) return 'hc-warn';
+  return 'hc-ok';
+}
+
+function renderDash(){
+  const titleEl = document.getElementById('dash-title');
+  if(titleEl) titleEl.textContent = ST.name;
+
+  const keys = Object.keys(ST.quotas).filter(k=>ST.quotas[k]>0);
+  const totTgt = Object.values(ST.quotas).reduce((a,b)=>a+b,0);
+  const tot = ST.cases.length;
+  const pct = totTgt>0 ? Math.round(tot/totTgt*100) : null;
+
+  const sumCasos = document.getElementById('sum-casos');
+  const sumObj = document.getElementById('sum-obj');
+  const sumPct = document.getElementById('sum-pct');
+  const sumCerr = document.getElementById('sum-cerradas');
+  if(sumCasos) sumCasos.textContent = tot.toLocaleString('es-AR');
+  if(sumObj) sumObj.textContent = totTgt>0 ? totTgt.toLocaleString('es-AR') : '—';
+  if(sumPct) sumPct.textContent = pct!=null ? pct+'%' : '—';
+
+  const closed = keys.filter(k=>{const[g,ag,e]=cParts(k);return countCell(g,ag,e)>=ST.quotas[k];}).length;
+  if(sumCerr) sumCerr.textContent = closed;
+
+  // Global progress bar
+  const globalBar = document.getElementById('dash-global-bar');
+  if(globalBar && totTgt>0){
+    const pctVal = Math.min(Math.round(tot/totTgt*100),100);
+    const barColor = pctVal>=100?'var(--red)':pctVal>=ST.warnPct?'var(--amber)':'var(--green)';
+    globalBar.innerHTML = `<div class="global-prog-wrap">
+      <div class="gp-header">
+        <span class="gp-label">Avance total del campo</span>
+        <span class="gp-pct" style="color:${barColor}">${pctVal}%</span>
+      </div>
+      <div class="gp-track">
+        <div class="gp-fill" style="width:${pctVal}%;background:linear-gradient(90deg,${barColor},${barColor}cc)"></div>
+      </div>
+      <div class="gp-sub">
+        <span>${tot.toLocaleString('es-AR')} casos cargados</span>
+        <span>${(totTgt-tot)>0?(totTgt-tot).toLocaleString('es-AR')+' restantes':'✓ Objetivo alcanzado'}</span>
+      </div>
+    </div>`;
+  } else if(globalBar){
+    globalBar.innerHTML='';
+  }
+
+  const alerts = document.getElementById('dash-alerts');
+  if(alerts) alerts.innerHTML='';
+
+  if(!keys.length){
+    const qgrid = document.getElementById('dash-qgrid');
+    if(qgrid) qgrid.innerHTML=`<div style="text-align:center;padding:48px;color:var(--muted);font-size:13px">Configurá las cuotas en la pestaña <strong style="color:var(--text)">Cuotas</strong> para ver el avance.</div>`;
+    return;
+  }
+
+  // Build cell data
+  const cells = keys.map(k=>{
+    const[g,ag,e]=cParts(k);
+    const tgt=ST.quotas[k], cur=countCell(g,ag,e);
+    const pf=tgt>0?cur/tgt:0;
+    const st=pf>=1?'full':(pf*100>=ST.warnPct?'warn':'ok');
+    return{k,g,ag,e,tgt,cur,pf,st};
+  });
+
+  // Alerts (only full + warn)
+  if(alerts){
+    cells.filter(c=>c.st==='full').forEach(c=>{
+      alerts.innerHTML+=`<div class="al al-r">🔴 <strong>Completa:</strong> Est. ${c.e} · ${c.g} · ${c.ag} — ${c.cur}/${c.tgt}</div>`;
+    });
+    cells.filter(c=>c.st==='warn').forEach(c=>{
+      alerts.innerHTML+=`<div class="al al-a">🟡 <strong>${Math.round(c.pf*100)}%</strong> — Est. ${c.e} · ${c.g} · ${c.ag} — ${c.cur}/${c.tgt}</div>`;
+    });
+  }
+
+  // Group by estrato
+  const estratos = [...new Set(cells.map(c=>c.e))].sort();
+  const generos = [...new Set(cells.map(c=>c.g))].sort();
+  const ageGrps = ST.ageGroups.length ? ST.ageGroups : [...new Set(cells.map(c=>c.ag))];
+
+  let html = '';
+
+  estratos.forEach(est=>{
+    const estCells = cells.filter(c=>c.e===est);
+    const estTot = estCells.reduce((a,c)=>a+c.cur,0);
+    const estTgt = estCells.reduce((a,c)=>a+c.tgt,0);
+    const estPf = estTgt>0 ? estTot/estTgt : 0;
+    const estPct = Math.min(Math.round(estPf*100),100);
+    const estColor = estPf>=1?'var(--red)':estPf*100>=ST.warnPct?'var(--amber)':'var(--green)';
+    const estFull = estCells.filter(c=>c.st==='full').length;
+    const estWarn = estCells.filter(c=>c.st==='warn').length;
+    const estOk = estCells.filter(c=>c.st==='ok'&&c.cur>0).length;
+
+    html += `<div class="estrato-section">
+      <div class="estrato-header" onclick="toggleEstrato('${est}')">
+        <div class="estrato-title">
+          <span id="estrato-arrow-${est}" style="font-size:12px;color:var(--muted)">▾</span>
+          <span class="estrato-badge">Estrato ${est}</span>
+          <span class="estrato-name">${estTot.toLocaleString('es-AR')} / ${estTgt.toLocaleString('es-AR')}</span>
+        </div>
+        <div class="estrato-meta">
+          <div class="estrato-pills">
+            ${estFull>0?`<span class="pill pill-r">${estFull} completas</span>`:''}
+            ${estWarn>0?`<span class="pill pill-a">${estWarn} por cerrar</span>`:''}
+            ${estOk>0?`<span class="pill pill-g">${estOk} en curso</span>`:''}
+          </div>
+          <div class="estrato-prog">
+            <div class="estrato-prog-track"><div class="estrato-prog-fill" style="width:${estPct}%;background:${estColor}"></div></div>
+            <span class="estrato-prog-pct" style="color:${estColor}">${estPct}%</span>
+          </div>
+        </div>
+      </div>
+
+      <div id="estrato-body-${est}" class="estrato-body" style="display:block">
+        <div class="hmap-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th style="min-width:90px">Grupo edad</th>
+                ${generos.map(g=>`<th colspan="1">${g}</th>`).join('')}
+              </tr>
+            </thead>
+            <tbody>
+              ${ageGrps.map(ag=>{
+                return `<tr>
+                  <td>${ag}</td>
+                  ${generos.map(g=>{
+                    const cell = estCells.find(c=>c.g===g&&c.ag===ag);
+                    if(!cell) return `<td><div class="hcell hc-empty"><div class="hcell-nums">—</div></div></td>`;
+                    const p=Math.min(Math.round(cell.pf*100),100);
+                    const cc=cellColor(cell.pf,ST.warnPct);
+                    return `<td><div class="hcell ${cc}" title="${g} · ${ag} · Est.${est}: ${cell.cur}/${cell.tgt}">
+                      <div class="hcell-nums">${cell.cur}</div>
+                      <div class="hcell-tgt">/ ${cell.tgt}</div>
+                      <div class="hcell-bar"><div class="hcell-bar-fill" style="width:${p}%"></div></div>
+                    </div></td>`;
+                  }).join('')}
+                </tr>`;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>`;
+  });
+
+  const qgrid = document.getElementById('dash-qgrid');
+  if(qgrid) qgrid.innerHTML = html;
+}
+
+function renderTable(){
+  const tbody=document.getElementById('tbl-body');
+  const tot=ST.cases.length;
+  document.getElementById('tbl-count').textContent=tot.toLocaleString('es-AR');
+  document.getElementById('datos-sub').textContent=tot>0?`${tot.toLocaleString('es-AR')} casos procesados`:'Sin datos cargados';
+
+  if(!tot){
+    tbody.innerHTML='<tr><td colspan="11" style="text-align:center;padding:32px;color:var(--muted);font-size:12.5px">Cargá datos en la pestaña "Cargar datos"</td></tr>';
+    return;
+  }
+
+  // Show last 500 reversed for perf
+  const display=ST.cases.slice(-500).reverse();
+  tbody.innerHTML=display.map((c,i)=>{
+    const ri=ST.cases.length-i;
+    const tgt=ST.quotas[c.key]||0;
+    const cumul=ST.cases.slice(0,ST.cases.lastIndexOf(c)+1).filter(x=>x.key===c.key).length;
+    const exceeds=tgt>0&&cumul>tgt;
+    const noEst=c.estrato==='?';
+    const genTag=c.gen==='Masculino'?'tag-m':c.gen==='Femenino'?'tag-f':'tag-nb';
+    const stColor=noEst?'var(--amber)':exceeds?'var(--red)':'var(--green)';
+    const stTxt=noEst?'⚠ Sin estrato':exceeds?'⚠ Excede':'✓ OK';
+    return`<tr class="${exceeds?'tr-bad':noEst?'tr-noest':''}">
+      <td class="td-dim">${ri}</td>
+      <td>${c.id}</td>
+      <td><span class="tag ${genTag}">${c.gen}</span></td>
+      <td>${c.edad}</td>
+      <td>${c.ageGrp}</td>
+      <td>${c.prov||'—'}</td>
+      <td>${c.depto||'—'}</td>
+      <td style="font-weight:600">${c.estrato}</td>
+      <td style="font-size:10px;color:var(--muted)">${c.gen}/${c.ageGrp}/E${c.estrato}</td>
+      <td style="font-family:var(--mono);font-size:11px;color:${stColor}">${stTxt}</td>
+      <td><button class="btn btn-d" style="padding:3px 8px;font-size:10.5px" onclick="rmCase(${ST.cases.lastIndexOf(c)})">✕</button></td>
+    </tr>`;
+  }).join('');
+}
+
+function renderSidebar(){
+  const tot=ST.cases.length;
+  const tgt=Object.values(ST.quotas).reduce((a,b)=>a+b,0);
+  const pct=tgt>0?Math.round(tot/tgt*100):null;
+  document.getElementById('sb-casos').textContent=tot.toLocaleString('es-AR');
+  document.getElementById('sb-avance').textContent=pct!=null?pct+'%':'—';
+}
+
+function rmCase(i){ST.cases.splice(i,1);save();renderAll();}
+function clearCases(){if(!confirm('¿Borrar todos los casos?'))return;ST.cases=[];ST.nextId=1;save();renderAll();}
+
+function exportCSV(){
+  const rows=[['#','ID','Genero','Edad','GrupoEdad','Provincia','Departamento','Estrato','Celda']];
+  ST.cases.forEach((c,i)=>rows.push([i+1,c.id,c.gen,c.edad,c.ageGrp,c.prov,c.depto,c.estrato,`${c.gen}/${c.ageGrp}/E${c.estrato}`]));
+  const csv=rows.map(r=>r.map(v=>`"${v||''}"`).join(',')).join('\n');
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'}));
+  a.download=`cuotas_${ST.name.replace(/\s+/g,'_')}.csv`;
+  a.click();
+}
+
+// ══════════════════════════════════════════
+// DEBUG
+// ══════════════════════════════════════════
+function debugProvs(){
+  const panel = document.getElementById('sv-debug-provs');
+  const body = document.getElementById('sv-debug-body');
+  if(!panel||!body) return;
+
+  if(!_svRows.length){ alert('Cargá primero el archivo de datos.'); return; }
+
+  // Find province column index
+  const provSel = document.getElementById('sc-prov');
+  if(!provSel){ alert('Mapeá la columna de provincia primero.'); return; }
+  const provIdx = parseInt(provSel.value);
+
+  const uniq = [...new Set(_svRows.slice(1).map(r=>(r[provIdx]||'').trim()).filter(Boolean))].sort();
+
+  body.innerHTML = uniq.map(raw=>{
+    const normalized = normProv(raw);
+    const inRef = ST.refTable.some(x=>normProv(x.prov)===normalized);
+    const isFixed = PROV_FIXED_ESTRATO[normalized] !== undefined;
+    const status = isFixed
+      ? `<span style="color:var(--green)">✓ Estrato fijo: ${PROV_FIXED_ESTRATO[normalized]}</span>`
+      : inRef
+        ? `<span style="color:var(--green)">✓ Encontrada en tabla de referencia</span>`
+        : `<span style="color:var(--red)">✗ NO encontrada — normalizó a: "${normalized}"</span>`;
+    return `<div style="display:flex;gap:16px;align-items:center;padding:3px 0;border-bottom:1px solid var(--border)">
+      <span style="min-width:280px;color:var(--text)">"${raw}"</span>
+      ${status}
+    </div>`;
+  }).join('');
+
+  panel.style.display = 'block';
+}
+
+// ══════════════════════════════════════════
+// PROVINCIAS
+// ══════════════════════════════════════════
+function renderProvincias(){
+  const wrap = document.getElementById('prov-table-wrap');
+  const sumWrap = document.getElementById('prov-summary');
+  if(!wrap) return;
+
+  const cases = ST.cases;
+  if(!cases.length){
+    wrap.innerHTML = '<div class="empty-state" style="padding:48px"><p>No hay casos cargados todavía.</p></div>';
+    if(sumWrap) sumWrap.innerHTML = '';
+    return;
+  }
+
+  const ages = ST.ageGroups.length ? ST.ageGroups : [...new Set(cases.map(c=>c.ageGrp))].sort();
+  const generos = ['Masculino','Femenino'];
+  const search = (document.getElementById('prov-search')?.value||'').toLowerCase().trim();
+  const sortBy = document.getElementById('prov-sort')?.value||'casos';
+
+  // Build province data
+  let provs = [...new Set(cases.map(c=>c.prov||'Sin provincia'))].filter(p=>p);
+
+  // Filter by search
+  if(search) provs = provs.filter(p=>p.toLowerCase().includes(search));
+
+  // Build data per province
+  const provData = provs.map(prov=>{
+    const pc = cases.filter(c=>(c.prov||'Sin provincia')===prov);
+    const total = pc.length;
+    const jovenes = pc.filter(c=>parseInt(c.edad)<=29).length;
+    const pctJov = total>0?Math.round(jovenes/total*100):0;
+    // cells: genero x ageGrp
+    const cells = {};
+    generos.forEach(g=>{
+      ages.forEach(ag=>{
+        cells[`${g}__${ag}`] = pc.filter(c=>c.gen===g&&c.ageGrp===ag).length;
+      });
+    });
+    return {prov, total, jovenes, pctJov, cells};
+  });
+
+  // Sort
+  if(sortBy==='casos') provData.sort((a,b)=>b.total-a.total);
+  else if(sortBy==='alfa') provData.sort((a,b)=>a.prov.localeCompare(b.prov,'es'));
+  else if(sortBy==='pct') provData.sort((a,b)=>b.pctJov-a.pctJov);
+
+  // Summary pills
+  const totalCases = cases.length;
+  const totalProvs = [...new Set(cases.map(c=>c.prov||'Sin provincia').filter(Boolean))].length;
+  const totalJov = cases.filter(c=>parseInt(c.edad)<=29).length;
+  const topProv = provData[0];
+
+  if(sumWrap){
+    sumWrap.innerHTML = `
+      <div class="prov-pill"><div class="pv">${totalProvs}</div><div class="pl">Provincias</div></div>
+      <div class="prov-pill"><div class="pv" style="color:var(--green)">${totalCases.toLocaleString('es-AR')}</div><div class="pl">Total casos</div></div>
+      <div class="prov-pill"><div class="pv" style="color:#a78bfa">${totalJov.toLocaleString('es-AR')}</div><div class="pl">Jóvenes ≤29</div></div>
+      ${topProv?`<div class="prov-pill"><div class="pv" style="font-size:14px;font-family:var(--sans)">${topProv.prov}</div><div class="pl">Mayor vol. (${topProv.total} casos)</div></div>`:''}
+    `;
+  }
+
+  if(!provData.length){
+    wrap.innerHTML = '<div class="empty-state" style="padding:32px"><p>No hay provincias que coincidan con la búsqueda.</p></div>';
+    return;
+  }
+
+  // Build totals row
+  const colTotals = {};
+  generos.forEach(g=>ages.forEach(ag=>{ colTotals[`${g}__${ag}`] = cases.filter(c=>c.gen===g&&c.ageGrp===ag).length; }));
+
+  // Column headers: Género groups, then age subgroups
+  let headerRow1 = `<th rowspan="2">Provincia</th>`;
+  generos.forEach(g=>{
+    const cls = g==='Masculino'?'color:#5b9cf6':'color:#b57ef5';
+    headerRow1 += `<th colspan="${ages.length}" class="th-group" style="${cls}">${g}</th>`;
+  });
+  headerRow1 += `<th rowspan="2" style="color:#a78bfa">Jóvenes<br>≤29</th><th rowspan="2" style="color:var(--green)">Total</th>`;
+
+  let headerRow2 = '';
+  generos.forEach(()=>{
+    ages.forEach(ag=>{ headerRow2 += `<th>${ag}</th>`; });
+  });
+
+  // Data rows
+  const rows = provData.map(pd=>{
+    let cells = '';
+    generos.forEach(g=>{
+      ages.forEach(ag=>{
+        const v = pd.cells[`${g}__${ag}`]||0;
+        const pctCol = colTotals[`${g}__${ag}`]>0?Math.round(v/colTotals[`${g}__${ag}`]*100):0;
+        cells += `<td class="${v===0?'td-zero':''}" title="${pctCol}% del total de ${g} ${ag}">${v>0?v.toLocaleString('es-AR'):'—'}</td>`;
+      });
+    });
+    return `<tr>
+      <td>
+        ${pd.prov}
+        <div style="font-family:var(--mono);font-size:9px;color:var(--muted);margin-top:2px">${Math.round(pd.total/totalCases*100)}% del total</div>
+      </td>
+      ${cells}
+      <td class="td-jov">${pd.jovenes>0?pd.jovenes:'—'}</td>
+      <td class="td-total">${pd.total.toLocaleString('es-AR')}</td>
+    </tr>`;
+  }).join('');
+
+  // Footer totals row
+  let footerCells = '';
+  generos.forEach(g=>{
+    ages.forEach(ag=>{
+      const v = colTotals[`${g}__${ag}`]||0;
+      footerCells += `<td>${v>0?v.toLocaleString('es-AR'):'—'}</td>`;
+    });
+  });
+
+  wrap.innerHTML = `
+    <div class="prov-table-outer">
+      <div class="prov-table-scroll">
+        <table class="prov-table">
+          <thead>
+            <tr>${headerRow1}</tr>
+            <tr>${headerRow2}</tr>
+          </thead>
+          <tbody>${rows}</tbody>
+          <tfoot>
+            <tr>
+              <td>TOTAL</td>
+              ${footerCells}
+              <td style="color:#a78bfa">${totalJov.toLocaleString('es-AR')}</td>
+              <td>${totalCases.toLocaleString('es-AR')}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>`;
+}
+
+// ══════════════════════════════════════════
+// JOVENES + COST
+// ══════════════════════════════════════════
+function countJovenes(){
+  return ST.cases.filter(c=>parseInt(c.edad)<=29).length;
+}
+
+function toggleCostPanel(){
+  const p=document.getElementById('cost-panel');
+  if(p) p.style.display=p.style.display==='none'?'block':'none';
+}
+
+function updateCost(){
+  const total=parseFloat(document.getElementById('cost-total')?.value)||0;
+  const moneda=document.getElementById('cost-moneda')?.value||'$';
+  const casos=ST.cases.length;
+  const nObj=ST.n||0;
+
+  ST.cost={total,moneda,fecha:new Date().toLocaleDateString('es-AR')};
+  save();
+
+  const fmt=v=>v>0?`${moneda} ${Math.round(v).toLocaleString('es-AR')}`:'—';
+  const porCaso=casos>0?total/casos:0;
+  const estimado=porCaso>0&&nObj>0?porCaso*nObj:0;
+  const restante=porCaso>0&&nObj>casos?porCaso*(nObj-casos):0;
+
+  const el=id=>document.getElementById(id);
+  if(el('cost-por-caso-act')) el('cost-por-caso-act').textContent=fmt(porCaso);
+  if(el('cost-estimado')) el('cost-estimado').textContent=fmt(estimado);
+  if(el('cost-restante')) el('cost-restante').textContent=restante>0?fmt(restante):'✓ Completado';
+  if(el('cost-fecha')) el('cost-fecha').textContent=ST.cost.fecha||'—';
+  // sidebar KPI
+  if(el('sum-costo-caso')) el('sum-costo-caso').textContent=porCaso>0?`${moneda} ${Math.round(porCaso).toLocaleString('es-AR')}`:'—';
+}
+
+function renderCostWidget(){
+  const el=id=>document.getElementById(id);
+  if(!ST.cost) return;
+  if(el('cost-total')) el('cost-total').value=ST.cost.total||'';
+  if(el('cost-moneda')) el('cost-moneda').value=ST.cost.moneda||'$';
+  updateCost();
+}
+
+// ══════════════════════════════════════════
+// ENCUESTAS GUARDADAS
+// ══════════════════════════════════════════
+function saveCurrentSurvey(){
+  document.getElementById('save-survey-modal').style.display='flex';
+  const titulo=document.getElementById('enc-titulo');
+  if(titulo&&!titulo.value) titulo.value=ST.name||'';
+  setTimeout(()=>titulo&&titulo.focus(),100);
+}
+
+function closeSaveSurveyModal(){
+  document.getElementById('save-survey-modal').style.display='none';
+}
+
+function confirmSaveSurvey(){
+  const titulo=(document.getElementById('enc-titulo')?.value||'').trim();
+  const notas=(document.getElementById('enc-notas')?.value||'').trim();
+  if(!titulo){ alert('Ingresá un título para la encuesta.'); return; }
+
+  const snap={
+    id: Date.now(),
+    titulo,
+    notas,
+    fecha: new Date().toLocaleDateString('es-AR'),
+    fechaISO: new Date().toISOString(),
+    casos: ST.cases.length,
+    jovenes: countJovenes(),
+    n: ST.n,
+    pct: ST.n>0?Math.round(ST.cases.length/ST.n*100):0,
+    cerradas: Object.keys(ST.quotas).filter(k=>{
+      const[g,ag,e]=cParts(k);
+      return ST.quotas[k]>0&&countCell(g,ag,e)>=ST.quotas[k];
+    }).length,
+    totalCuotas: Object.keys(ST.quotas).filter(k=>ST.quotas[k]>0).length,
+    cost: ST.cost||null,
+    estratos: ST.estratos,
+    ageGroups: ST.ageGroups,
+    // snapshot of quota progress
+    quotaSnap: Object.keys(ST.quotas).filter(k=>ST.quotas[k]>0).map(k=>{
+      const[g,ag,e]=cParts(k);
+      return{k,tgt:ST.quotas[k],cur:countCell(g,ag,e)};
+    }),
+    // full state for reactivation
+    fullState: JSON.stringify({
+      name:ST.name, n:ST.n, warnPct:ST.warnPct,
+      ageGroups:ST.ageGroups, ageBounds:ST.ageBounds,
+      estratos:ST.estratos, quotas:ST.quotas,
+      cases:ST.cases, refTable:ST.refTable,
+      cost:ST.cost, nextId:ST.nextId
+    })
+  };
+
+  ST.surveys = ST.surveys||[];
+  ST.surveys.unshift(snap);
+  save();
+  closeSaveSurveyModal();
+  document.getElementById('enc-titulo').value='';
+  document.getElementById('enc-notas').value='';
+  renderEncuestas();
+  alert(`✓ Encuesta "${titulo}" guardada.`);
+}
+
+function loadSurvey(id){
+  const s=ST.surveys?.find(x=>x.id===id);
+  if(!s) return;
+  if(!confirm(`¿Reactivar la encuesta "${s.titulo}"?\nEsto reemplazará el estado actual. Asegurate de guardar primero si necesitás conservarlo.`)) return;
+  try{
+    const fs=JSON.parse(s.fullState);
+    Object.assign(ST, fs);
+    save();
+    renderAll();
+    renderCostWidget();
+    // go to dashboard
+    document.querySelectorAll('.nav-btn').forEach(b=>b.classList.toggle('on',b.dataset.p==='dashboard'));
+    document.querySelectorAll('.panel').forEach(p=>p.classList.remove('on'));
+    document.getElementById('p-dashboard').classList.add('on');
+    alert(`✓ Encuesta "${s.titulo}" reactivada.`);
+  } catch(e){ alert('Error al reactivar: '+e.message); }
+}
+
+function deleteSurvey(id){
+  const s=ST.surveys?.find(x=>x.id===id);
+  if(!s) return;
+  if(!confirm(`¿Eliminar la encuesta "${s.titulo}" del historial? No se puede deshacer.`)) return;
+  ST.surveys=ST.surveys.filter(x=>x.id!==id);
+  save();
+  renderEncuestas();
+}
+
+function renderEncuestas(){
+  const container=document.getElementById('enc-list');
+  if(!container) return;
+  const surveys=ST.surveys||[];
+
+  if(!surveys.length){
+    container.innerHTML=`<div class="empty-state" style="padding:48px">
+      <div style="font-size:32px;margin-bottom:10px">◈</div>
+      <p>No hay encuestas guardadas todavía.<br>Hacé clic en <strong style="color:var(--text)">+ Guardar encuesta actual</strong> para archivar el estado actual.</p>
+    </div>`;
+    return;
+  }
+
+  container.innerHTML=surveys.map(s=>{
+    const moneda=s.cost?.moneda||'$';
+    const total=s.cost?.total||0;
+    const porCaso=s.casos>0&&total>0?Math.round(total/s.casos):0;
+    const estimado=porCaso>0&&s.n>0?Math.round(porCaso*s.n):0;
+    const pct=Math.min(s.pct,100);
+    const barColor=pct>=100?'var(--red)':pct>=80?'var(--amber)':'var(--green)';
+
+    return `<div class="enc-card">
+      <div>
+        <div class="enc-card-title">${s.titulo}</div>
+        <div class="enc-card-meta">
+          <span>📅 ${s.fecha}</span>
+          <span>📊 ${s.casos.toLocaleString('es-AR')} casos / ${s.n.toLocaleString('es-AR')} objetivo</span>
+          <span style="color:${barColor};font-weight:700">${pct}% completado</span>
+          ${s.cerradas>0?`<span>✓ ${s.cerradas}/${s.totalCuotas} cuotas cerradas</span>`:''}
+        </div>
+        <div class="enc-card-stats">
+          <div class="enc-stat"><span class="sv">${s.casos.toLocaleString('es-AR')}</span><span class="sl">Casos</span></div>
+          <div class="enc-stat"><span class="sv" style="color:#a78bfa">${s.jovenes.toLocaleString('es-AR')}</span><span class="sl">Jóvenes ≤29</span></div>
+          ${porCaso>0?`<div class="enc-stat"><span class="sv" style="color:var(--amber)">${moneda} ${porCaso.toLocaleString('es-AR')}</span><span class="sl">$ por caso</span></div>`:''}
+          ${estimado>0?`<div class="enc-stat"><span class="sv" style="color:var(--amber)">${moneda} ${estimado.toLocaleString('es-AR')}</span><span class="sl">Costo est. total</span></div>`:''}
+          <div class="enc-stat"><span class="sv">${(s.estratos||[]).length}</span><span class="sl">Estratos</span></div>
+        </div>
+        <div class="enc-prog-bar"><div class="enc-prog-fill" style="width:${pct}%;background:${barColor}"></div></div>
+        ${s.notas?`<div class="enc-card-notes">"${s.notas}"</div>`:''}
+      </div>
+      <div class="enc-actions">
+        <button class="btn btn-w" onclick="loadSurvey(${s.id})" style="font-size:12px">↩ Reactivar</button>
+        <button class="btn" onclick="deleteSurvey(${s.id})" style="background:transparent;border:1px solid var(--border);color:var(--muted);font-size:11px;padding:5px 10px">✕ Eliminar</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ══════════════════════════════════════════
+// RESET
+// ══════════════════════════════════════════
+// RESET
+// ══════════════════════════════════════════
+function showResetMenu(){
+  const modal = document.getElementById('reset-modal');
+  if(modal){ modal.style.display='flex'; }
+  // reset checkboxes to all checked
+  ['rc-casos','rc-cuotas','rc-ref'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el) el.classList.remove('off');
+  });
+}
+
+function closeReset(){
+  const modal=document.getElementById('reset-modal');
+  if(modal) modal.style.display='none';
+}
+
+function toggleResetOpt(label){
+  const check=label.querySelector('.reset-check');
+  if(check) check.classList.toggle('off');
+}
+
+function doReset(){
+  const cases = !document.getElementById('rc-casos')?.classList.contains('off');
+  const cuotas = !document.getElementById('rc-cuotas')?.classList.contains('off');
+  const ref = !document.getElementById('rc-ref')?.classList.contains('off');
+
+  if(!cases&&!cuotas&&!ref){ closeReset(); return; }
+
+  if(cases){
+    ST.cases=[];
+    ST.nextId=1;
+  }
+  if(cuotas){
+    ST.quotas={};
+    const qm=document.getElementById('q-matrix');
+    if(qm) qm.innerHTML='';
+    const qt=document.getElementById('q-toolbar');
+    if(qt) qt.style.display='none';
+    const qph=document.getElementById('q-paste-hint');
+    if(qph) qph.style.display='none';
+  }
+  if(ref){
+    ST.refTable=[];
+    ST.estratos=[];
+    _refRows=[];
+    const qe=document.getElementById('q-estratos');
+    if(qe) qe.value='';
+    const us=document.getElementById('us-ref');
+    if(us) us.classList.remove('show');
+    const rc=document.getElementById('ref-col-card');
+    if(rc) rc.style.display='none';
+    const mp=document.getElementById('m-prov');
+    if(mp) mp.innerHTML='';
+    const rm=document.getElementById('ref-apply-msg');
+    if(rm) rm.innerHTML='';
+    window._refRows=[];
+  }
+
+  save();
+  renderAll();
+  closeReset();
+}
+
+// Close modal on backdrop click
+document.getElementById('reset-modal')?.addEventListener('click', function(e){
+  if(e.target===this) closeReset();
+});
+
+// ══════════════════════════════════════════
+// INIT
+// ══════════════════════════════════════════
+function g(id){return document.getElementById(id);}
+function sv(id,val){const el=g(id);if(el)el.value=val;}
+
+load();
+if(ST.estratos.length){
+  sv('q-estratos', ST.estratos.join(', '));
+  const provs=[...new Set(ST.refTable.map(r=>r.prov))].sort();
+  const sel=g('m-prov');
+  if(sel&&provs.length){
+    sel.innerHTML=provs.map(p=>`<option value="${p}">${p}</option>`).join('');
+    fillDepto();
+  }
+}
+sv('q-name', ST.name);
+sv('q-n', ST.n);
+sv('q-warn', ST.warnPct);
+if(ST.ageGroups.length) sv('q-ages', ST.ageGroups.join(','));
+renderAll();
+renderEncuestas();
+renderCostWidget();
+// init surveys array
+if(!ST.surveys) ST.surveys=[];
+// close modals on backdrop
+document.getElementById('save-survey-modal')?.addEventListener('click',function(e){if(e.target===this)closeSaveSurveyModal();});
+</script>
+</body>
+</html>
