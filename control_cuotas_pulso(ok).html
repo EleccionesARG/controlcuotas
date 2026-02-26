@@ -4,12 +4,17 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Control de Cuotas — Pulso</title>
+
+
 <!-- Firebase SDK -->
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-  import { getDatabase, ref, set, onValue, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+  import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
 
-  // ── PASTE YOUR FIREBASE CONFIG HERE ──
+  // ═══════════════════════════════════════════════════
+  // PASO 1: PEGÁ AQUÍ TU CONFIGURACIÓN DE FIREBASE
+  // (ver instrucciones en la pestaña Ayuda del sistema)
+  // ═══════════════════════════════════════════════════
   const firebaseConfig = {
   apiKey: "AIzaSyBIiw9xRGrTWrSohBmn5YJFMPV_KCWLPa0",
   authDomain: "control-cuotas-pulso.firebaseapp.com",
@@ -21,71 +26,36 @@
   measurementId: "G-VQES40QZ74"
 };
 
-  const app = initializeApp(firebaseConfig);
-  const db = getDatabase(app);
-  const DATA_REF = 'pulso/estado';
-
-  // Expose to global scope for legacy functions
-  window._fbRef = ref(db, DATA_REF);
-  window._fbSet = set;
-  window._fbServerTs = serverTimestamp;
-
-  // Listen for real-time changes from other users
-  onValue(window._fbRef, (snapshot) => {
-    const data = snapshot.val();
-    if (!data) return;
-    // Avoid overwriting if we just pushed (debounce)
-    if (window._suppressRemote) return;
+  // No toques nada de acá para abajo
+  if (firebaseConfig.apiKey === "PASTE_API_KEY") {
+    window._fbReady = false;
+    console.warn("Firebase no configurado — funcionando en modo local");
+  } else {
     try {
-      const parsed = typeof data === 'string' ? JSON.parse(data) : data;
-      Object.assign(ST, parsed);
-      renderAll();
-      renderEncuestas();
-      renderCostWidget();
-      showSyncStatus('sync', '● En vivo');
-    } catch(e) { console.warn('Firebase parse error', e); }
-  });
+      const app = initializeApp(firebaseConfig);
+      const db = getDatabase(app);
+      window._fbRef = ref(db, 'pulso/estado');
+      window._fbSet = set;
+      window._fbReady = true;
 
-  window._fbReady = true;
-  showSyncStatus('ok', '● Conectado');
-</script>
+      // Escuchar cambios en tiempo real de otros usuarios
+      onValue(window._fbRef, (snapshot) => {
+        const data = snapshot.val();
+        if (!data || window._suppressRemote) return;
+        try {
+          Object.assign(ST, JSON.parse(data));
+          renderAll();
+          renderEncuestas();
+          renderCostWidget();
+          showSyncStatus('sync', '● En vivo');
+        } catch(e) { console.warn('Firebase parse error', e); }
+      });
 
-<!-- Firebase SDK -->
-<script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-  import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
-
-  // ── PEGÁ TU CONFIG DE FIREBASE AQUÍ ──
-  const firebaseConfig = {
-    apiKey: "PASTE_API_KEY",
-    authDomain: "PASTE_AUTH_DOMAIN",
-    databaseURL: "PASTE_DATABASE_URL",
-    projectId: "PASTE_PROJECT_ID",
-    storageBucket: "PASTE_STORAGE_BUCKET",
-    messagingSenderId: "PASTE_SENDER_ID",
-    appId: "PASTE_APP_ID"
-  };
-
-  if(firebaseConfig.apiKey === "PASTE_API_KEY"){ window._fbReady=false; console.warn("Firebase no configurado"); }
-  else {
-    const app = initializeApp(firebaseConfig);
-    const db = getDatabase(app);
-    const DATA_PATH = 'pulso/estado';
-    window._fbRef = ref(db, DATA_PATH);
-    window._fbSet = set;
-    window._fbReady = true;
-
-    // Escuchar cambios en tiempo real
-    onValue(window._fbRef, (snapshot) => {
-      const data = snapshot.val();
-      if (!data || window._suppressRemote) return;
-      try {
-        Object.assign(ST, JSON.parse(data));
-        renderAll(); renderEncuestas(); renderCostWidget();
-        showSyncStatus('sync', '● En vivo');
-      } catch(e) { console.warn('Firebase error', e); }
-    });
-    showSyncStatus('ok', '● Conectado');
+      showSyncStatus('ok', '● Conectado a Firebase');
+    } catch(e) {
+      console.error('Firebase init error:', e);
+      showSyncStatus('err', '● Error de conexión');
+    }
   }
 </script>
 
@@ -428,9 +398,56 @@ tbody td{font-family:var(--mono);font-size:12px;padding:8px 13px;white-space:now
 .prov-pill .pv{font-family:var(--mono);font-size:18px;font-weight:600;line-height:1}
 .prov-pill .pl{font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
 
+
+/* ─── login screen ─── */
+#login-screen{position:fixed;inset:0;background:var(--bg);z-index:9999;display:flex;align-items:center;justify-content:center}
+.login-box{width:360px;max-width:90vw;text-align:center}
+.login-logo{font-family:var(--serif);font-size:32px;margin-bottom:6px}
+.login-logo em{color:var(--green);font-style:italic}
+.login-sub{font-size:11px;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:40px}
+.login-field{position:relative;margin-bottom:14px}
+.login-field input{width:100%;background:var(--s2);border:1px solid var(--border2);border-radius:9px;color:var(--text);font-family:var(--mono);font-size:15px;padding:14px 46px 14px 18px;outline:none;letter-spacing:.12em;transition:border-color .15s;text-align:center}
+.login-field input:focus{border-color:var(--green)}
+.login-field input.shake{animation:shake .35s ease}
+.login-field .eye-btn{position:absolute;right:14px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--muted);cursor:pointer;font-size:16px;padding:4px}
+.login-btn{width:100%;background:var(--green);border:none;border-radius:9px;color:#0e1a12;cursor:pointer;font-family:var(--sans);font-size:14px;font-weight:700;padding:14px;letter-spacing:.04em;transition:all .12s;margin-bottom:16px}
+.login-btn:hover{background:#4adeaa}
+.login-btn:active{transform:scale(.98)}
+.login-err{font-size:12px;color:var(--red);min-height:18px;margin-top:-8px;margin-bottom:8px}
+.login-hint{font-size:11px;color:var(--muted2);line-height:1.6}
+@keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-8px)}40%{transform:translateX(8px)}60%{transform:translateX(-5px)}80%{transform:translateX(5px)}}
+
+
+/* ─── alerts toggle ─── */
+.alerts-toggle{background:none;border:none;color:var(--muted);cursor:pointer;font-size:11.5px;font-family:var(--sans);padding:6px 0;width:100%;text-align:left;transition:color .12s}
+.alerts-toggle:hover{color:var(--text)}
+
+/* ─── empty state ─── */
+.empty-state{text-align:center;color:var(--muted);font-size:13px;line-height:1.7}
+
+/* ─── last update badge ─── */
+#dash-lastupdate{transition:opacity .3s}
+
 </style>
 </head>
 <body>
+<!-- ── LOGIN SCREEN ── -->
+<div id="login-screen">
+  <div class="login-box">
+    <div class="login-logo">Control de<br><em>Cuotas</em></div>
+    <div class="login-sub">Encuestas Pulso</div>
+    <div class="login-field">
+      <input type="password" id="login-input" placeholder="Contraseña"
+        onkeydown="if(event.key==='Enter')doLogin()"
+        oninput="document.getElementById('login-err').textContent=''">
+      <button class="eye-btn" onclick="togglePwd()" tabindex="-1">👁</button>
+    </div>
+    <div class="login-err" id="login-err"></div>
+    <button class="login-btn" onclick="doLogin()">Ingresar</button>
+    <div class="login-hint">Acceso restringido a equipo Pulso</div>
+  </div>
+</div>
+
 <div class="shell">
 
 <!-- ── RAIL ── -->
@@ -441,12 +458,15 @@ tbody td{font-family:var(--mono);font-size:12px;padding:8px 13px;white-space:now
     <div id="sync-status" style="margin-top:8px;font-size:10px;font-family:var(--mono);color:rgba(255,255,255,.25);display:flex;align-items:center;gap:5px">● Sin configurar</div>
     
   </div>
-  <button class="nav-btn on" data-p="dashboard"><span class="nav-icon">▦</span>Dashboard</button>
-  <button class="nav-btn" data-p="datos"><span class="nav-icon">⊞</span>Datos</button>
-  <button class="nav-btn" data-p="cargar"><span class="nav-icon">↑</span>Cargar datos</button>
+  <div style="padding:4px 18px 6px;font-size:9px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:var(--muted2)">Configuración</div>
   <button class="nav-btn" data-p="cuotas"><span class="nav-icon">◫</span>Cuotas</button>
-  <button class="nav-btn" data-p="encuestas"><span class="nav-icon">◈</span>Encuestas</button>
+  <button class="nav-btn" data-p="cargar"><span class="nav-icon">↑</span>Cargar datos</button>
+  <div style="padding:10px 18px 6px;font-size:9px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:var(--muted2)">Seguimiento</div>
+  <button class="nav-btn on" data-p="dashboard"><span class="nav-icon">▦</span>Dashboard</button>
   <button class="nav-btn" data-p="provincias"><span class="nav-icon">⊛</span>Provincias</button>
+  <button class="nav-btn" data-p="datos"><span class="nav-icon">⊞</span>Casos</button>
+  <div style="padding:10px 18px 6px;font-size:9px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:var(--muted2)">Archivo</div>
+  <button class="nav-btn" data-p="encuestas"><span class="nav-icon">◈</span>Encuestas</button>
   <button class="nav-btn" data-p="ayuda"><span class="nav-icon">?</span>Ayuda</button>
 
   <div class="rail-stats">
@@ -509,7 +529,12 @@ tbody td{font-family:var(--mono);font-size:12px;padding:8px 13px;white-space:now
   <div class="pg-head" style="margin-bottom:16px">
     <div>
       <div class="pg-title" id="dash-title">Encuesta</div>
-      <div class="pg-sub">Monitoreo de cuotas en tiempo real</div>
+      <div class="pg-sub" style="display:flex;align-items:center;gap:12px">
+        <span>Monitoreo de cuotas en tiempo real</span>
+        <span id="dash-lastupdate" style="font-family:var(--mono);font-size:10px;color:var(--muted2);background:var(--s2);border:1px solid var(--border);border-radius:4px;padding:2px 8px;display:none">
+          Actualizado: <span id="dash-lastupdate-val">—</span>
+        </span>
+      </div>
     </div>
     <div class="btn-row">
       <button class="btn btn-w" onclick="toggleDashView()" id="btn-view-toggle">Vista compacta</button>
@@ -617,11 +642,27 @@ tbody td{font-family:var(--mono);font-size:12px;padding:8px 13px;white-space:now
   </div>
 
   <div class="tbl-wrap">
-    <div class="tbl-bar">
-      <div class="tbl-info">Casos <span id="tbl-count">0</span></div>
-      <div class="btn-row">
+    <div class="tbl-bar" style="flex-wrap:wrap;gap:10px">
+      <div class="tbl-info">Casos <span id="tbl-count">0</span> <span id="tbl-filtered" style="font-size:11px;color:var(--muted);font-weight:400"></span></div>
+      <div class="btn-row" style="flex:1;justify-content:flex-end;flex-wrap:wrap;gap:8px">
+        <input type="text" id="tbl-search" placeholder="Buscar ID, provincia..." oninput="renderTable()"
+          style="background:var(--s2);border:1px solid var(--border2);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:12px;padding:6px 10px;outline:none;width:180px">
+        <select id="tbl-f-gen" onchange="renderTable()" style="background:var(--s2);border:1px solid var(--border2);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:12px;padding:6px 10px;outline:none">
+          <option value="">Todos los géneros</option>
+          <option>Masculino</option><option>Femenino</option><option>No binario</option>
+        </select>
+        <select id="tbl-f-est" onchange="renderTable()" style="background:var(--s2);border:1px solid var(--border2);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:12px;padding:6px 10px;outline:none">
+          <option value="">Todos los estratos</option>
+        </select>
+        <select id="tbl-f-estado" onchange="renderTable()" style="background:var(--s2);border:1px solid var(--border2);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:12px;padding:6px 10px;outline:none">
+          <option value="">Todos los estados</option>
+          <option value="ok">✓ OK</option>
+          <option value="excede">⚠ Excede</option>
+          <option value="sinest">⚠ Sin estrato</option>
+        </select>
+        <button class="btn btn-w" onclick="clearTableFilters()">✕ Limpiar filtros</button>
         <button class="btn btn-w" onclick="exportCSV()">↓ Exportar CSV</button>
-        <button class="btn btn-d" onclick="clearCases()">✕ Limpiar</button>
+        <button class="btn btn-d" onclick="clearCases()">✕ Limpiar todo</button>
       </div>
     </div>
     <div class="scroll-x">
@@ -914,6 +955,91 @@ tbody td{font-family:var(--mono);font-size:12px;padding:8px 13px;white-space:now
   </div>
 
   <div class="card">
+    <div class="card-hd">Publicar en línea con Firebase + GitHub Pages</div>
+    <p style="font-size:12.5px;color:var(--muted);margin-bottom:16px;line-height:1.6">
+      Seguí estos pasos para que tus socios vean el dashboard en tiempo real desde cualquier navegador.
+      Tiempo estimado: <strong style="color:var(--text)">10–15 minutos</strong>.
+    </p>
+    <div class="steps">
+
+      <div class="step">
+        <div class="step-n">A</div>
+        <div class="step-body">
+          <strong>Crear proyecto en Firebase</strong><br>
+          Entrá a <code>console.firebase.google.com</code> con tu cuenta de Google.
+          Hacé clic en <em>"Crear un proyecto"</em>, ponerle nombre (ej: <code>pulso-cuotas</code>), desactivar Google Analytics si querés, y finalizar.
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-n">B</div>
+        <div class="step-body">
+          <strong>Activar Realtime Database</strong><br>
+          En el menú izquierdo: <em>Compilación → Realtime Database → Crear base de datos</em>.
+          Elegí ubicación <code>us-central1</code> (o cualquiera). Cuando pregunte las reglas, elegí <em>"Empezar en modo de prueba"</em> y hacé clic en Habilitar.
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-n">C</div>
+        <div class="step-body">
+          <strong>Cambiar las reglas de seguridad</strong><br>
+          En Realtime Database, hacé clic en la pestaña <em>"Reglas"</em>. Reemplazá todo el contenido con esto y publicá:
+          <div class="formula-block" style="margin-top:8px">{
+  "rules": {
+    ".read": true,
+    ".write": true
+  }
+}</div>
+          Esto permite que cualquiera con el link pueda leer y vos escribir. Podés restringirlo después con autenticación.
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-n">D</div>
+        <div class="step-body">
+          <strong>Copiar la configuración</strong><br>
+          Hacé clic en el ⚙️ (arriba a la izquierda) → <em>Configuración del proyecto</em>.
+          Bajá a <em>"Tus apps"</em>, hacé clic en el ícono <code>&lt;/&gt;</code> (Web), registrá la app con cualquier nombre.
+          Te va a mostrar un bloque <code>const firebaseConfig = &#123;...&#125;</code> con 7 valores.
+          <strong style="color:var(--text)">Copiá esos 7 valores.</strong>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-n">E</div>
+        <div class="step-body">
+          <strong>Pegarlo en el archivo HTML</strong><br>
+          Abrí el archivo <code>control_cuotas_pulso.html</code> con el <strong>Bloc de notas</strong> (clic derecho → Abrir con → Bloc de notas).
+          Buscá (Ctrl+F) el texto <code>PASTE_API_KEY</code> y reemplazá las 7 líneas con los valores que copiaste de Firebase.
+          Guardá el archivo.
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-n">F</div>
+        <div class="step-body">
+          <strong>Subir a GitHub Pages</strong><br>
+          Entrá a <code>github.com</code> y creá una cuenta si no tenés. Creá un repositorio nuevo: <em>New repository</em> → nombre (ej: <code>pulso-cuotas</code>) → <strong>Público</strong> → Create.<br>
+          Subí el archivo: <em>Add file → Upload files</em>, arrastrá el HTML, hacé commit.<br>
+          Activá GitHub Pages: <em>Settings → Pages → Branch: main → / (root) → Save</em>.<br>
+          En unos segundos aparece el link: <code>https://tuusuario.github.io/pulso-cuotas/control_cuotas_pulso.html</code>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-n">G</div>
+        <div class="step-body">
+          <strong>Verificar que funciona</strong><br>
+          Abrí el link. En el sidebar deberías ver <span style="color:#5bdb8a;font-family:var(--mono);font-size:11px">● Conectado a Firebase</span>.
+          Cargá un caso desde tu computadora y abrí el mismo link en otro navegador o dispositivo — el cambio debería aparecer en segundos.
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="card">
     <div class="card-hd">Fórmulas equivalentes en Google Sheets</div>
     <p class="formula-note">Si querés replicar la lógica en tu propio sheet:</p>
 
@@ -967,6 +1093,46 @@ function save(){
   }catch(e){}
 }
 function load(){try{const d=localStorage.getItem('cq3');if(d)Object.assign(ST,JSON.parse(d));}catch(e){}}
+
+// ══════════════════════════════════════════
+// LOGIN
+// ══════════════════════════════════════════
+
+// ═══════════════════════════════════════════
+// PASO 2: CAMBIÁ ESTA CONTRASEÑA
+const ACCESS_PASSWORD = "pulso2025";
+// ═══════════════════════════════════════════
+
+function doLogin(){
+  const val = document.getElementById('login-input').value;
+  if(val === ACCESS_PASSWORD){
+    document.getElementById('login-screen').style.display = 'none';
+    sessionStorage.setItem('pulso_auth','1');
+  } else {
+    const inp = document.getElementById('login-input');
+    const err = document.getElementById('login-err');
+    err.textContent = 'Contraseña incorrecta';
+    inp.classList.add('shake');
+    inp.value = '';
+    setTimeout(()=>inp.classList.remove('shake'), 400);
+    inp.focus();
+  }
+}
+
+function togglePwd(){
+  const inp = document.getElementById('login-input');
+  inp.type = inp.type === 'password' ? 'text' : 'password';
+}
+
+// Check session on load
+(function(){
+  if(sessionStorage.getItem('pulso_auth')==='1'){
+    const ls = document.getElementById('login-screen');
+    if(ls) ls.style.display='none';
+  } else {
+    setTimeout(()=>document.getElementById('login-input')?.focus(), 100);
+  }
+})();
 
 // ══════════════════════════════════════════
 // FIREBASE SYNC STATUS
@@ -1732,6 +1898,15 @@ function renderAll(){
 
 let dashExpanded = {};  // track collapsed estratos
 
+function toggleAlerts(btn){
+  const more = document.getElementById('alerts-more');
+  if(!more) return;
+  const hidden = more.style.display === 'none';
+  more.style.display = hidden ? 'block' : 'none';
+  const count = btn.dataset.count;
+  btn.textContent = hidden ? `▴ Ver menos` : `▾ Ver ${count} alerta${count>1?'s':''} más`;
+}
+
 function toggleDashView(){
   const grid = document.getElementById('dash-qgrid');
   const btn = document.getElementById('btn-view-toggle');
@@ -1784,6 +1959,18 @@ function renderDash(){
   const closed = keys.filter(k=>{const[g,ag,e]=cParts(k);return countCell(g,ag,e)>=ST.quotas[k];}).length;
   if(sumCerr) sumCerr.textContent = closed;
 
+  // Last update timestamp
+  const luWrap = document.getElementById('dash-lastupdate');
+  const luVal = document.getElementById('dash-lastupdate-val');
+  if(tot > 0 && luWrap && luVal){
+    const lastTs = ST.cases.length ? Math.max(...ST.cases.map(c=>c.ts||0)) : 0;
+    if(lastTs){
+      const d = new Date(lastTs);
+      luVal.textContent = d.toLocaleDateString('es-AR') + ' ' + d.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
+      luWrap.style.display = 'inline-flex';
+    }
+  } else if(luWrap){ luWrap.style.display = 'none'; }
+
   // Global progress bar
   const globalBar = document.getElementById('dash-global-bar');
   if(globalBar && totTgt>0){
@@ -1809,9 +1996,35 @@ function renderDash(){
   const alerts = document.getElementById('dash-alerts');
   if(alerts) alerts.innerHTML='';
 
-  if(!keys.length){
+  if(!keys.length || !tot){
     const qgrid = document.getElementById('dash-qgrid');
-    if(qgrid) qgrid.innerHTML=`<div style="text-align:center;padding:48px;color:var(--muted);font-size:13px">Configurá las cuotas en la pestaña <strong style="color:var(--text)">Cuotas</strong> para ver el avance.</div>`;
+    if(!qgrid) return;
+    const hasRef = ST.refTable.length > 0;
+    const hasQuotas = keys.length > 0;
+    const hasCases = tot > 0;
+    // Determine which step we're at
+    const steps = [
+      { done: hasRef,   num:'1', label:'Cargá la tabla de referencia', sub:'Cargar datos → ① Tabla de estratos', action:"goPanel('cargar')" },
+      { done: hasQuotas,num:'2', label:'Configurá las cuotas',          sub:'Cuotas → Generar tabla',              action:"goPanel('cuotas')" },
+      { done: hasCases, num:'3', label:'Cargá los datos de la encuesta',sub:'Cargar datos → ② Datos de encuesta', action:"goPanel('cargar')" },
+    ];
+    const nextStep = steps.find(s=>!s.done) || steps[2];
+    qgrid.innerHTML = `<div style="max-width:480px;margin:0 auto;padding:40px 20px">
+      <div style="font-family:var(--serif);font-size:22px;margin-bottom:6px;color:var(--text)">Para empezar</div>
+      <div style="font-size:13px;color:var(--muted);margin-bottom:28px">Completá estos pasos en orden para ver el dashboard.</div>
+      ${steps.map((s,i)=>`
+        <div style="display:flex;gap:14px;align-items:flex-start;padding:14px 0;border-bottom:1px solid var(--border);cursor:${s.done?'default':'pointer'}" onclick="${s.done?'':s.action}">
+          <div style="width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0;margin-top:1px;
+            background:${s.done?'var(--green-dim)':'var(--s3)'};border:1px solid ${s.done?'var(--green)':'var(--border2)'};color:${s.done?'var(--green)':'var(--muted)'}">
+            ${s.done?'✓':s.num}
+          </div>
+          <div style="flex:1">
+            <div style="font-size:13px;font-weight:${s.done?'400':'600'};color:${s.done?'var(--muted)':'var(--text)'};${s.done?'text-decoration:line-through':''}">${s.label}</div>
+            <div style="font-size:11px;color:var(--muted2);margin-top:3px;font-family:var(--mono)">${s.sub}</div>
+          </div>
+          ${!s.done?`<div style="font-size:11px;color:var(--green);padding-top:3px;white-space:nowrap">Ir →</div>`:''}
+        </div>`).join('')}
+    </div>`;
     return;
   }
 
@@ -1824,14 +2037,29 @@ function renderDash(){
     return{k,g,ag,e,tgt,cur,pf,st};
   });
 
-  // Alerts (only full + warn)
+  // Compact collapsible alerts
   if(alerts){
-    cells.filter(c=>c.st==='full').forEach(c=>{
-      alerts.innerHTML+=`<div class="al al-r">🔴 <strong>Completa:</strong> Est. ${c.e} · ${c.g} · ${c.ag} — ${c.cur}/${c.tgt}</div>`;
-    });
-    cells.filter(c=>c.st==='warn').forEach(c=>{
-      alerts.innerHTML+=`<div class="al al-a">🟡 <strong>${Math.round(c.pf*100)}%</strong> — Est. ${c.e} · ${c.g} · ${c.ag} — ${c.cur}/${c.tgt}</div>`;
-    });
+    const fullCells = cells.filter(c=>c.st==='full');
+    const warnCells = cells.filter(c=>c.st==='warn');
+    const totalAlerts = fullCells.length + warnCells.length;
+
+    if(totalAlerts === 0){
+      alerts.innerHTML = tot>0 ? `<div class="al al-g" style="margin-bottom:12px">✓ Todo en orden — ninguna cuota por cerrar todavía</div>` : '';
+    } else {
+      const SHOW = 3;
+      const allAlerts = [
+        ...fullCells.map(c=>({cls:'al-r', icon:'🔴', txt:`<strong>Completa:</strong> Est.${c.e} · ${c.g} · ${c.ag} — ${c.cur}/${c.tgt}`})),
+        ...warnCells.map(c=>({cls:'al-a', icon:'🟡', txt:`<strong>${Math.round(c.pf*100)}%</strong> — Est.${c.e} · ${c.g} · ${c.ag} — ${c.cur}/${c.tgt}`}))
+      ];
+      const visible = allAlerts.slice(0, SHOW);
+      const hidden = allAlerts.slice(SHOW);
+      let html = visible.map(a=>`<div class="al ${a.cls}">${a.icon} ${a.txt}</div>`).join('');
+      if(hidden.length){
+        html += `<div id="alerts-more" style="display:none">${hidden.map(a=>`<div class="al ${a.cls}">${a.icon} ${a.txt}</div>`).join('')}</div>`;
+        html += `<button class="alerts-toggle" onclick="toggleAlerts(this)" data-count="${hidden.length}">▾ Ver ${hidden.length} alerta${hidden.length>1?'s':''} más</button>`;
+      }
+      alerts.innerHTML = html;
+    }
   }
 
   // Group by estrato
@@ -1909,30 +2137,69 @@ function renderDash(){
   if(qgrid) qgrid.innerHTML = html;
 }
 
+function clearTableFilters(){
+  const ids=['tbl-search','tbl-f-gen','tbl-f-est','tbl-f-estado'];
+  ids.forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  renderTable();
+}
+
 function renderTable(){
   const tbody=document.getElementById('tbl-body');
   const tot=ST.cases.length;
   document.getElementById('tbl-count').textContent=tot.toLocaleString('es-AR');
   document.getElementById('datos-sub').textContent=tot>0?`${tot.toLocaleString('es-AR')} casos procesados`:'Sin datos cargados';
 
+  // Update estrato filter options
+  const fEst=document.getElementById('tbl-f-est');
+  if(fEst&&ST.estratos.length){
+    const cur=fEst.value;
+    fEst.innerHTML='<option value="">Todos los estratos</option>'+
+      ST.estratos.map(e=>`<option value="${e}" ${cur===e?'selected':''}>Estrato ${e}</option>`).join('');
+  }
+
   if(!tot){
     tbody.innerHTML='<tr><td colspan="11" style="text-align:center;padding:32px;color:var(--muted);font-size:12.5px">Cargá datos en la pestaña "Cargar datos"</td></tr>';
+    const fi=document.getElementById('tbl-filtered');if(fi)fi.textContent='';
     return;
   }
 
-  // Show last 500 reversed for perf
-  const display=ST.cases.slice(-500).reverse();
+  // Apply filters
+  const search=(document.getElementById('tbl-search')?.value||'').toLowerCase();
+  const fGen=document.getElementById('tbl-f-gen')?.value||'';
+  const fEstVal=document.getElementById('tbl-f-est')?.value||'';
+  const fEstado=document.getElementById('tbl-f-estado')?.value||'';
+
+  let filtered=ST.cases.slice().reverse();
+  if(search) filtered=filtered.filter(c=>(c.id||'').toLowerCase().includes(search)||(c.prov||'').toLowerCase().includes(search)||(c.depto||'').toLowerCase().includes(search));
+  if(fGen) filtered=filtered.filter(c=>c.gen===fGen);
+  if(fEstVal) filtered=filtered.filter(c=>c.estrato===fEstVal);
+  if(fEstado){
+    filtered=filtered.filter(c=>{
+      const tgt=ST.quotas[c.key]||0;
+      const exceeds=tgt>0&&ST.cases.filter(x=>x.key===c.key).length>tgt;
+      const noEst=c.estrato==='?';
+      if(fEstado==='ok') return !exceeds&&!noEst;
+      if(fEstado==='excede') return exceeds;
+      if(fEstado==='sinest') return noEst;
+      return true;
+    });
+  }
+
+  const fi=document.getElementById('tbl-filtered');
+  if(fi) fi.textContent=filtered.length<tot?`(mostrando ${filtered.length.toLocaleString('es-AR')} de ${tot.toLocaleString('es-AR')})`:'';
+
+  const display=filtered.slice(0,500);
+  const hidden=filtered.length-display.length;
   tbody.innerHTML=display.map((c,i)=>{
-    const ri=ST.cases.length-i;
+    const origIdx=ST.cases.indexOf(c);
     const tgt=ST.quotas[c.key]||0;
-    const cumul=ST.cases.slice(0,ST.cases.lastIndexOf(c)+1).filter(x=>x.key===c.key).length;
-    const exceeds=tgt>0&&cumul>tgt;
+    const exceeds=tgt>0&&ST.cases.filter(x=>x.key===c.key).length>tgt;
     const noEst=c.estrato==='?';
     const genTag=c.gen==='Masculino'?'tag-m':c.gen==='Femenino'?'tag-f':'tag-nb';
     const stColor=noEst?'var(--amber)':exceeds?'var(--red)':'var(--green)';
     const stTxt=noEst?'⚠ Sin estrato':exceeds?'⚠ Excede':'✓ OK';
     return`<tr class="${exceeds?'tr-bad':noEst?'tr-noest':''}">
-      <td class="td-dim">${ri}</td>
+      <td class="td-dim">${ST.cases.length-ST.cases.indexOf(c)}</td>
       <td>${c.id}</td>
       <td><span class="tag ${genTag}">${c.gen}</span></td>
       <td>${c.edad}</td>
@@ -1942,9 +2209,9 @@ function renderTable(){
       <td style="font-weight:600">${c.estrato}</td>
       <td style="font-size:10px;color:var(--muted)">${c.gen}/${c.ageGrp}/E${c.estrato}</td>
       <td style="font-family:var(--mono);font-size:11px;color:${stColor}">${stTxt}</td>
-      <td><button class="btn btn-d" style="padding:3px 8px;font-size:10.5px" onclick="rmCase(${ST.cases.lastIndexOf(c)})">✕</button></td>
+      <td><button class="btn btn-d" style="padding:3px 8px;font-size:10.5px" onclick="rmCase(${origIdx})">✕</button></td>
     </tr>`;
-  }).join('');
+  }).join('')+(hidden>0?`<tr><td colspan="11" style="text-align:center;padding:12px;color:var(--muted);font-size:12px">... y ${hidden.toLocaleString('es-AR')} más. Usá los filtros para acotar la vista.</td></tr>`:'');
 }
 
 function renderSidebar(){
