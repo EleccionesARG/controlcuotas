@@ -19,6 +19,7 @@
   appId: "1:55044827232:web:3b152771247e59cec3fb05",
   measurementId: "G-VQES40QZ74"
 };
+
   if (firebaseConfig.apiKey !== "PASTE_API_KEY") {
     try {
       const app = initializeApp(firebaseConfig);
@@ -330,70 +331,6 @@ table.dtbl{width:100%;border-collapse:collapse}
 .sync-bar-sep{width:1px;height:20px;background:var(--border);flex-shrink:0}
 .sync-interval-input{background:var(--s1);border:1px solid var(--b2);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:12px;padding:5px 8px;width:60px;outline:none;text-align:center}
 .sync-interval-input:focus{border-color:var(--green)}
-
-/* ── OBSERVER MODE ── */
-body.observer-mode .sync-bar,
-body.observer-mode [data-p="muestras"],
-body.observer-mode [data-p="sync"],
-body.observer-mode [data-p="encuestas"],
-body.observer-mode [data-p="ayuda"],
-body.observer-mode [data-p="casos"],
-body.observer-mode .btn-d,
-body.observer-mode #btn-compact { display:none !important }
-body.observer-mode .rail-bottom { display:none }
-.observer-badge{display:none;background:var(--amber);color:#000;font-size:10px;font-weight:700;padding:3px 8px;border-radius:20px;letter-spacing:.08em;text-transform:uppercase}
-body.observer-mode .observer-badge{display:inline-block}
-
-/* ── SEMAFORO ── */
-.semaforo{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:18px}
-.sem-card{border-radius:14px;padding:18px 20px;text-align:center;border:2px solid transparent;transition:all .3s}
-.sem-card.sem-green{background:rgba(62,207,142,.1);border-color:rgba(62,207,142,.3)}
-.sem-card.sem-amber{background:rgba(240,166,46,.1);border-color:rgba(240,166,46,.3)}
-.sem-card.sem-red{background:rgba(224,90,90,.1);border-color:rgba(224,90,90,.3)}
-.sem-card.sem-grey{background:var(--s2);border-color:var(--border)}
-.sem-icon{font-size:28px;margin-bottom:6px}
-.sem-val{font-family:var(--mono);font-size:28px;font-weight:800;line-height:1}
-.sem-lbl{font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-top:4px}
-.sem-sub{font-size:11px;color:var(--muted2);margin-top:4px;font-family:var(--mono)}
-
-/* ── VELOCITY ── */
-.vel-bar-row{display:flex;align-items:center;gap:10px;margin-bottom:6px}
-.vel-date{font-family:var(--mono);font-size:11px;color:var(--muted);width:70px;flex-shrink:0;text-align:right}
-.vel-bar-wrap{flex:1;background:var(--s3);border-radius:4px;height:22px;overflow:hidden;position:relative}
-.vel-bar-fill{height:100%;border-radius:4px;background:var(--green);transition:width .5s ease;display:flex;align-items:center;padding-left:8px}
-.vel-bar-val{font-family:var(--mono);font-size:11px;font-weight:700;color:#0a1f12;white-space:nowrap}
-.vel-eta{background:var(--s2);border:1px solid var(--border);border-radius:12px;padding:16px 20px;display:flex;align-items:center;gap:16px;margin-bottom:18px}
-.vel-eta-icon{font-size:32px}
-.vel-eta-val{font-family:var(--mono);font-size:24px;font-weight:800;color:var(--green)}
-.vel-eta-lbl{font-size:12px;color:var(--muted)}
-
-/* ── META PANEL ── */
-.meta-quota-row{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--border)}
-.meta-quota-row:last-child{border-bottom:none}
-.meta-action-badge{font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px}
-.meta-action-pause{background:rgba(224,90,90,.15);color:var(--red)}
-.meta-action-reduce{background:rgba(240,166,46,.15);color:var(--amber)}
-.meta-action-ok{background:rgba(62,207,142,.12);color:var(--green)}
-
-/* ── MOBILE ── */
-@media(max-width:700px){
-  .rail{width:100%;height:52px;flex-direction:row;padding:0 12px;gap:0;position:fixed;top:0;left:0;right:0;z-index:100;border-right:none;border-bottom:1px solid var(--border);overflow-x:auto}
-  .rail-logo,.rail-bottom,.nav-sep{display:none}
-  .nav-btn{flex-shrink:0;padding:0 12px;height:52px;border-radius:0;font-size:11px;flex-direction:column;gap:2px;border-bottom:3px solid transparent}
-  .nav-btn.on{border-bottom:3px solid var(--green);background:transparent}
-  .nav-icon{font-size:14px}
-  .main{margin-left:0;padding:68px 12px 20px}
-  .panel{padding:0}
-  .pg-head{flex-direction:column;gap:10px;align-items:flex-start}
-  .kpi-bar{grid-template-columns:repeat(2,1fr);gap:8px}
-  .semaforo{grid-template-columns:1fr 1fr}
-  .qtbl-wrap{font-size:11px}
-  .qcell-wrap{padding:7px 8px;min-width:70px}
-  .qcell-cur{font-size:18px}
-  .sync-bar{flex-wrap:wrap;gap:8px}
-  .home-grid{grid-template-columns:1fr}
-  .card{padding:14px}
-}
 </style>
 </head>
 <body>
@@ -422,7 +359,6 @@ body.observer-mode .observer-badge{display:inline-block}
   <div class="rail-logo">
     <div class="logo-mark">Control de<br><em>Cuotas</em></div>
     <div class="logo-org">Encuestas Pulso</div>
-    <span class="observer-badge">Solo lectura</span>
     <div class="sync-dot" id="sync-status">● Local</div>
   </div>
 
@@ -433,8 +369,7 @@ body.observer-mode .observer-badge{display:inline-block}
     <button class="nav-btn" data-p="dashboard"><span class="nav-icon">▦</span>Dashboard</button>
     <button class="nav-btn" data-p="provincias"><span class="nav-icon">⊛</span>Provincias</button>
     <button class="nav-btn" data-p="estrato4"><span class="nav-icon">④</span>Estrato 4</button>
-    <button class="nav-btn" data-p="meta"><span class="nav-icon">⬡</span>Pauta Meta</button>
-    <button class="nav-btn" data-p="velocidad"><span class="nav-icon">◎</span>Velocidad</button>
+    <button class="nav-btn" data-p="estrato4"><span class="nav-icon">★</span>Estrato 4</button>
     <button class="nav-btn" data-p="casos"><span class="nav-icon">⊞</span>Casos</button>
     <button class="nav-btn" style="color:var(--muted);font-size:11px" onclick="volverHome()"><span class="nav-icon">←</span>Volver</button>
   </div>
@@ -868,39 +803,6 @@ body.observer-mode .observer-badge{display:inline-block}
   </div>
   <div id="e4-kpis" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px"></div>
   <div id="e4-table-wrap"></div>
-</div>
-
-<!-- ══ VELOCIDAD ══ -->
-<div id="p-velocidad" class="panel">
-  <div class="pg-head">
-    <div><div class="pg-title">Velocidad del campo</div><div class="pg-sub">Casos por día y estimación de cierre</div></div>
-  </div>
-  <div id="vel-eta-wrap"></div>
-  <div class="card">
-    <div class="card-hd">Casos por día</div>
-    <div id="vel-bars-wrap" style="padding-top:8px"></div>
-  </div>
-</div>
-
-<!-- ══ META ══ -->
-<div id="p-meta" class="panel">
-  <div class="pg-head">
-    <div><div class="pg-title">Pauta Meta</div><div class="pg-sub">Conjuntos de anuncios recomendados según avance de cuotas</div></div>
-    <button class="btn btn-w" onclick="renderMeta()">↺ Actualizar</button>
-  </div>
-  <div class="card" style="margin-bottom:14px">
-    <div class="card-hd">Cómo usar este panel</div>
-    <p style="font-size:12.5px;color:var(--muted);line-height:1.8">
-      El sistema analiza el avance de cada cuota y sugiere qué conjuntos de anuncios pausar o reducir en Meta Ads.
-      Agrupá tus conjuntos por <strong style="color:var(--text)">estrato × grupo de edad × género</strong> y usá los mismos nombres acá para que coincidan.
-    </p>
-    <div style="margin-top:12px">
-      <label style="font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:6px">Umbral para "reducir" (%)</label>
-      <input type="number" id="meta-threshold" value="80" min="50" max="99" style="background:var(--s2);border:1px solid var(--b2);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:13px;padding:6px 10px;width:80px;outline:none" oninput="renderMeta()">
-      <span style="font-size:12px;color:var(--muted);margin-left:8px">Por encima de este % → reducir alcance</span>
-    </div>
-  </div>
-  <div id="meta-table-wrap"></div>
 </div>
 
 </div><!-- /main -->
@@ -1829,9 +1731,6 @@ function renderDash(){
       <div class="prog-sub"><span>${tot.toLocaleString('es-AR')} casos</span><span>${(totTgt-tot)>0?(totTgt-tot).toLocaleString('es-AR')+' restantes':'✓ Completado'}</span></div>
     </div>`;
   } else if(progEl) progEl.innerHTML='';
-
-  // Semaforo
-  renderSemaforo(tot, totTgt, closed, keys.length, cells);
 
   // Empty state
   if(!keys.length||!m){
@@ -2812,205 +2711,9 @@ function goPanel(p){
   if(p==='home'){ renderHome(); }
   if(p==='provincias') renderProvincias();
   if(p==='estrato4') renderEstrato4();
-  if(p==='velocidad') renderVelocidad();
-  if(p==='meta') renderMeta();
   if(p==='muestras') renderMuestras();
   if(p==='encuestas') renderEncuestas();
   if(p==='sync') populateSMMusetraSelect();
-}
-
-// ══════════════════════════════════════════
-// OBSERVER MODE
-// ══════════════════════════════════════════
-(function(){
-  const params = new URLSearchParams(window.location.search);
-  if(params.get('view') === '1' || params.get('observer') === '1'){
-    document.body.classList.add('observer-mode');
-    // Skip password for observers
-    sessionStorage.setItem('pulso_auth','1');
-  }
-})();
-
-// ══════════════════════════════════════════
-// SEMAFORO
-// ══════════════════════════════════════════
-function renderSemaforo(tot, totTgt, closed, totalQuotas, cells){
-  const el = document.getElementById('dash-semaforo'); if(!el) return;
-  if(!totTgt){ el.innerHTML=''; return; }
-  const pct = Math.round(tot/totTgt*100);
-  const warn = cells ? cells.filter(c=>c.st==='warn').length : 0;
-  const restantes = totTgt - tot;
-
-  // ETA calc
-  const etaDays = calcETA();
-  const etaTxt = etaDays === null ? '—' : etaDays <= 0 ? '¡Hoy!' : etaDays === 1 ? 'Mañana' : `${etaDays} días`;
-
-  // Overall status
-  let overallCls, overallIcon, overallTxt;
-  if(pct >= 100){ overallCls='sem-red'; overallIcon='🏁'; overallTxt='Campo cerrado'; }
-  else if(closed > 0 || warn > 0){ overallCls='sem-amber'; overallIcon='⚠️'; overallTxt='Cuotas en límite'; }
-  else if(tot > 0){ overallCls='sem-green'; overallIcon='✅'; overallTxt='Campo activo'; }
-  else { overallCls='sem-grey'; overallIcon='⏳'; overallTxt='Sin casos'; }
-
-  el.innerHTML = `<div class="semaforo">
-    <div class="sem-card ${overallCls}">
-      <div class="sem-icon">${overallIcon}</div>
-      <div class="sem-val" style="color:${overallCls==='sem-green'?'var(--green)':overallCls==='sem-amber'?'var(--amber)':overallCls==='sem-red'?'var(--red)':'var(--muted)'}">${pct}%</div>
-      <div class="sem-lbl">Avance</div>
-      <div class="sem-sub">${tot.toLocaleString('es-AR')} / ${totTgt.toLocaleString('es-AR')}</div>
-    </div>
-    <div class="sem-card ${closed>0?'sem-red':'sem-green'}">
-      <div class="sem-icon">${closed>0?'🔴':'🟢'}</div>
-      <div class="sem-val" style="color:${closed>0?'var(--red)':'var(--green)'}">${closed}</div>
-      <div class="sem-lbl">Cuotas cerradas</div>
-      <div class="sem-sub">de ${totalQuotas} totales</div>
-    </div>
-    <div class="sem-card ${etaDays!==null&&etaDays<=3?'sem-amber':'sem-green'}">
-      <div class="sem-icon">📅</div>
-      <div class="sem-val" style="color:var(--green)">${etaTxt}</div>
-      <div class="sem-lbl">Estimación cierre</div>
-      <div class="sem-sub">${restantes>0?restantes.toLocaleString('es-AR')+' restantes':'Completado'}</div>
-    </div>
-  </div>`;
-}
-
-// ══════════════════════════════════════════
-// VELOCITY + ETA
-// ══════════════════════════════════════════
-function getCasesByDay(){
-  const cases = (typeof getCases==='function') ? getCases() : (APP.cases||[]);
-  const byDay = {};
-  cases.forEach(c => {
-    if(!c.ts) return;
-    const d = new Date(c.ts);
-    const key = d.toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit'});
-    byDay[key] = (byDay[key]||0) + 1;
-  });
-  return byDay;
-}
-
-function calcETA(){
-  const cases = (typeof getCases==='function') ? getCases() : (APP.cases||[]);
-  const quotas = APP.quotas || {};
-  const totTgt = Object.values(quotas).reduce((a,b)=>a+b,0);
-  const tot = cases.length;
-  if(!totTgt || tot >= totTgt) return 0;
-
-  // Velocity: cases per day over last 3 days
-  const byDay = getCasesByDay();
-  const days = Object.values(byDay);
-  if(days.length < 1) return null;
-  const recent = days.slice(-3);
-  const avgPerDay = recent.reduce((a,b)=>a+b,0) / recent.length;
-  if(avgPerDay <= 0) return null;
-  return Math.ceil((totTgt - tot) / avgPerDay);
-}
-
-function renderVelocidad(){
-  const etaWrap = document.getElementById('vel-eta-wrap'); if(!etaWrap) return;
-  const barsWrap = document.getElementById('vel-bars-wrap'); if(!barsWrap) return;
-
-  const byDay = getCasesByDay();
-  const entries = Object.entries(byDay).slice(-14); // last 14 days
-  const maxVal = entries.length ? Math.max(...entries.map(e=>e[1])) : 1;
-  const etaDays = calcETA();
-  const cases = (typeof getCases==='function') ? getCases() : (APP.cases||[]);
-  const quotas = APP.quotas || {};
-  const totTgt = Object.values(quotas).reduce((a,b)=>a+b,0);
-  const avgPerDay = entries.length > 0 ? Math.round(entries.slice(-3).reduce((s,[,v])=>s+v,0)/Math.min(3,entries.length)) : 0;
-
-  // ETA card
-  etaWrap.innerHTML = `<div class="vel-eta" style="margin-bottom:18px">
-    <div class="vel-eta-icon">📅</div>
-    <div>
-      <div class="vel-eta-val">${etaDays===null?'Sin datos':etaDays<=0?'¡Completado!':etaDays===1?'Mañana':etaDays+' días'}</div>
-      <div class="vel-eta-lbl">Estimación de cierre al ritmo actual</div>
-    </div>
-    <div style="margin-left:auto;text-align:right">
-      <div style="font-family:var(--mono);font-size:22px;font-weight:700;color:var(--blue)">${avgPerDay}</div>
-      <div style="font-size:11px;color:var(--muted)">casos/día (promedio 3d)</div>
-    </div>
-    <div style="text-align:right">
-      <div style="font-family:var(--mono);font-size:22px;font-weight:700;color:var(--amber)">${totTgt>0?totTgt-cases.length:0}</div>
-      <div style="font-size:11px;color:var(--muted)">casos restantes</div>
-    </div>
-  </div>`;
-
-  if(!entries.length){
-    barsWrap.innerHTML = '<div style="color:var(--muted);text-align:center;padding:20px">Sin datos de fechas disponibles</div>';
-    return;
-  }
-
-  barsWrap.innerHTML = entries.map(([date, count]) => {
-    const pct = maxVal > 0 ? Math.round(count/maxVal*100) : 0;
-    const color = count === maxVal ? 'var(--green)' : count >= avgPerDay ? 'var(--blue)' : 'var(--muted2)';
-    return `<div class="vel-bar-row">
-      <span class="vel-date">${date}</span>
-      <div class="vel-bar-wrap">
-        <div class="vel-bar-fill" style="width:${pct}%;background:${color}">
-          ${pct > 15 ? `<span class="vel-bar-val">${count}</span>` : ''}
-        </div>
-      </div>
-      ${pct <= 15 ? `<span style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-left:6px">${count}</span>` : ''}
-    </div>`;
-  }).join('');
-}
-
-// ══════════════════════════════════════════
-// META ADS PANEL
-// ══════════════════════════════════════════
-function renderMeta(){
-  const wrap = document.getElementById('meta-table-wrap'); if(!wrap) return;
-  const threshold = parseInt(document.getElementById('meta-threshold')?.value||'80');
-  const cases = (typeof getCases==='function') ? getCases() : (APP.cases||[]);
-  const quotas = APP.quotas || {};
-  const keys = Object.keys(quotas).filter(k=>quotas[k]>0);
-  if(!keys.length){ wrap.innerHTML='<div class="card" style="color:var(--muted);text-align:center;padding:30px">Activá una muestra para ver las recomendaciones</div>'; return; }
-
-  // Build recommendations per quota
-  const rows = keys.map(k => {
-    const [g,ag,e] = cParts(k);
-    const tgt = quotas[k];
-    const cur = cases.filter(c=>c.gen===g&&c.ageGrp===ag&&c.estrato===e).length;
-    const pct = tgt > 0 ? Math.round(cur/tgt*100) : 0;
-    let action, actionClass, actionTxt, priority;
-    if(pct >= 100){ action='PAUSAR'; actionClass='meta-action-pause'; actionTxt='Cuota completa — pausar conjunto'; priority=0; }
-    else if(pct >= threshold){ action='REDUCIR'; actionClass='meta-action-reduce'; actionTxt=`${pct}% alcanzado — reducir alcance`; priority=1; }
-    else { action='ACTIVO'; actionClass='meta-action-ok'; actionTxt=`${pct}% — continuar normalmente`; priority=2; }
-    return { k, g, ag, e, tgt, cur, pct, action, actionClass, actionTxt, priority };
-  }).sort((a,b) => a.priority - b.priority || a.e.localeCompare(b.e) || a.g.localeCompare(b.g));
-
-  const toPause = rows.filter(r=>r.action==='PAUSAR').length;
-  const toReduce = rows.filter(r=>r.action==='REDUCIR').length;
-
-  wrap.innerHTML = `
-    <div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap">
-      <div style="background:rgba(224,90,90,.1);border:1px solid rgba(224,90,90,.3);border-radius:10px;padding:10px 16px;min-width:120px">
-        <div style="font-family:var(--mono);font-size:22px;font-weight:800;color:var(--red)">${toPause}</div>
-        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-top:3px">Pausar</div>
-      </div>
-      <div style="background:rgba(240,166,46,.1);border:1px solid rgba(240,166,46,.3);border-radius:10px;padding:10px 16px;min-width:120px">
-        <div style="font-family:var(--mono);font-size:22px;font-weight:800;color:var(--amber)">${toReduce}</div>
-        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-top:3px">Reducir</div>
-      </div>
-      <div style="background:rgba(62,207,142,.08);border:1px solid rgba(62,207,142,.2);border-radius:10px;padding:10px 16px;min-width:120px">
-        <div style="font-family:var(--mono);font-size:22px;font-weight:800;color:var(--green)">${rows.length-toPause-toReduce}</div>
-        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-top:3px">Activos</div>
-      </div>
-    </div>
-    <div style="background:var(--s1);border:1px solid var(--border);border-radius:12px;overflow:hidden">
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 80px 80px 140px;padding:10px 16px;background:var(--s2);border-bottom:1px solid var(--border);font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);gap:8px">
-        <span>Género</span><span>Edad</span><span>Estrato</span><span>Casos</span><span>Avance</span><span>Acción</span>
-      </div>
-      ${rows.map(r=>`<div class="meta-quota-row" style="display:grid;grid-template-columns:1fr 1fr 1fr 80px 80px 140px;gap:8px;align-items:center">
-        <span style="font-size:13px;font-weight:600">${r.g}</span>
-        <span style="font-family:var(--mono);font-size:12px">${r.ag}</span>
-        <span style="font-family:var(--mono);font-size:12px">Est. ${r.e}</span>
-        <span style="font-family:var(--mono);font-size:13px;font-weight:700">${r.cur}/${r.tgt}</span>
-        <span style="font-family:var(--mono);font-size:13px;font-weight:700;color:${r.pct>=100?'var(--red)':r.pct>=threshold?'var(--amber)':'var(--green)'}">${r.pct}%</span>
-        <span class="meta-action-badge ${r.actionClass}">${r.action}</span>
-      </div>`).join('')}
-    </div>`;
 }
 
 // ══════════════════════════════════════════
@@ -3328,14 +3031,6 @@ function renderEstrato4(){
 load();
 if(!APP.activeSurveys) APP.activeSurveys = [];
 if(!APP.surveys) APP.surveys = [];
-// Observer mode via URL param
-(function(){
-  const p=new URLSearchParams(window.location.search);
-  if(p.get('view')==='1'||p.get('observer')==='1'){
-    document.body.classList.add('observer-mode');
-    sessionStorage.setItem('pulso_auth','1');
-  }
-})();
 renderHome();
 renderMuestras();
 renderEncuestas();
