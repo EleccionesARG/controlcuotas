@@ -27,17 +27,36 @@
       window._fbRef = ref(db, 'pulso/v4');
       window._fbSet = set;
       window._fbReady = true;
-      onValue(window._fbRef, (snap) => {
+      // Two listeners: config (dashboard state) + sync (server data)
+      const fbConfigRef = ref(db, 'pulso/v4config');
+      const fbSyncRef   = ref(db, 'pulso/v4sync');
+      window._fbConfigRef = fbConfigRef;
+      window._fbSyncRef   = fbSyncRef;
+
+      // Config listener: restores muestras, activeSurveys, etc.
+      onValue(fbConfigRef, (snap) => {
         const data = snap.val();
-        if (!data || window._suppressRemote) return;
+        if(!data || window._suppressRemote) return;
         try {
-        const parsed = JSON.parse(data);
-        // Update non-case fields in APP
-        const {rawCases, cases, ...rest} = parsed;
-        Object.assign(APP, rest);
-        updateSurveyFromFirebase(parsed);
-        showSync('sync','● En vivo');
-      } catch(e){ console.warn('Firebase parse error:', e); }
+          const parsed = JSON.parse(data);
+          // Only restore config fields — never case data
+          const safe = ['muestras','activeSurveys','activeMuestraId','n','warnPct','surveys','cost','nextId'];
+          safe.forEach(k => { if(parsed[k] !== undefined) APP[k] = parsed[k]; });
+          showSync('ok','● Conectado');
+          renderHome();
+          renderMuestras();
+        } catch(e){ console.warn('Config parse error:', e); }
+      });
+
+      // Sync listener: receives rawCases from Railway server
+      onValue(fbSyncRef, (snap) => {
+        const data = snap.val();
+        if(!data || window._suppressRemote) return;
+        try {
+          const parsed = JSON.parse(data);
+          updateSurveyFromFirebase(parsed);
+          showSync('sync','● En vivo');
+        } catch(e){ console.warn('Sync parse error:', e); }
       });
       showSync('ok','● Conectado');
     } catch(e){ showSync('err','● Error Firebase'); }
@@ -325,6 +344,70 @@ table.dtbl{width:100%;border-collapse:collapse}
 .sync-bar-sep{width:1px;height:20px;background:var(--border);flex-shrink:0}
 .sync-interval-input{background:var(--s1);border:1px solid var(--b2);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:12px;padding:5px 8px;width:60px;outline:none;text-align:center}
 .sync-interval-input:focus{border-color:var(--green)}
+
+/* ── OBSERVER MODE ── */
+body.observer-mode .sync-bar,
+body.observer-mode [data-p="muestras"],
+body.observer-mode [data-p="sync"],
+body.observer-mode [data-p="encuestas"],
+body.observer-mode [data-p="ayuda"],
+body.observer-mode [data-p="casos"],
+body.observer-mode .btn-d,
+body.observer-mode #btn-compact { display:none !important }
+body.observer-mode .rail-bottom { display:none }
+.observer-badge{display:none;background:var(--amber);color:#000;font-size:10px;font-weight:700;padding:3px 8px;border-radius:20px;letter-spacing:.08em;text-transform:uppercase}
+body.observer-mode .observer-badge{display:inline-block}
+
+/* ── SEMAFORO ── */
+.semaforo{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:18px}
+.sem-card{border-radius:14px;padding:18px 20px;text-align:center;border:2px solid transparent;transition:all .3s}
+.sem-card.sem-green{background:rgba(62,207,142,.1);border-color:rgba(62,207,142,.3)}
+.sem-card.sem-amber{background:rgba(240,166,46,.1);border-color:rgba(240,166,46,.3)}
+.sem-card.sem-red{background:rgba(224,90,90,.1);border-color:rgba(224,90,90,.3)}
+.sem-card.sem-grey{background:var(--s2);border-color:var(--border)}
+.sem-icon{font-size:28px;margin-bottom:6px}
+.sem-val{font-family:var(--mono);font-size:28px;font-weight:800;line-height:1}
+.sem-lbl{font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-top:4px}
+.sem-sub{font-size:11px;color:var(--muted2);margin-top:4px;font-family:var(--mono)}
+
+/* ── VELOCITY ── */
+.vel-bar-row{display:flex;align-items:center;gap:10px;margin-bottom:6px}
+.vel-date{font-family:var(--mono);font-size:11px;color:var(--muted);width:70px;flex-shrink:0;text-align:right}
+.vel-bar-wrap{flex:1;background:var(--s3);border-radius:4px;height:22px;overflow:hidden;position:relative}
+.vel-bar-fill{height:100%;border-radius:4px;background:var(--green);transition:width .5s ease;display:flex;align-items:center;padding-left:8px}
+.vel-bar-val{font-family:var(--mono);font-size:11px;font-weight:700;color:#0a1f12;white-space:nowrap}
+.vel-eta{background:var(--s2);border:1px solid var(--border);border-radius:12px;padding:16px 20px;display:flex;align-items:center;gap:16px;margin-bottom:18px}
+.vel-eta-icon{font-size:32px}
+.vel-eta-val{font-family:var(--mono);font-size:24px;font-weight:800;color:var(--green)}
+.vel-eta-lbl{font-size:12px;color:var(--muted)}
+
+/* ── META PANEL ── */
+.meta-quota-row{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--border)}
+.meta-quota-row:last-child{border-bottom:none}
+.meta-action-badge{font-size:11px;font-weight:700;padding:4px 10px;border-radius:20px}
+.meta-action-pause{background:rgba(224,90,90,.15);color:var(--red)}
+.meta-action-reduce{background:rgba(240,166,46,.15);color:var(--amber)}
+.meta-action-ok{background:rgba(62,207,142,.12);color:var(--green)}
+
+/* ── MOBILE ── */
+@media(max-width:700px){
+  .rail{width:100%;height:52px;flex-direction:row;padding:0 12px;gap:0;position:fixed;top:0;left:0;right:0;z-index:100;border-right:none;border-bottom:1px solid var(--border);overflow-x:auto}
+  .rail-logo,.rail-bottom,.nav-sep{display:none}
+  .nav-btn{flex-shrink:0;padding:0 12px;height:52px;border-radius:0;font-size:11px;flex-direction:column;gap:2px;border-bottom:3px solid transparent}
+  .nav-btn.on{border-bottom:3px solid var(--green);background:transparent}
+  .nav-icon{font-size:14px}
+  .main{margin-left:0;padding:68px 12px 20px}
+  .panel{padding:0}
+  .pg-head{flex-direction:column;gap:10px;align-items:flex-start}
+  .kpi-bar{grid-template-columns:repeat(2,1fr);gap:8px}
+  .semaforo{grid-template-columns:1fr 1fr}
+  .qtbl-wrap{font-size:11px}
+  .qcell-wrap{padding:7px 8px;min-width:70px}
+  .qcell-cur{font-size:18px}
+  .sync-bar{flex-wrap:wrap;gap:8px}
+  .home-grid{grid-template-columns:1fr}
+  .card{padding:14px}
+}
 </style>
 </head>
 <body>
@@ -353,6 +436,7 @@ table.dtbl{width:100%;border-collapse:collapse}
   <div class="rail-logo">
     <div class="logo-mark">Control de<br><em>Cuotas</em></div>
     <div class="logo-org">Encuestas Pulso</div>
+    <span class="observer-badge">Solo lectura</span>
     <div class="sync-dot" id="sync-status">● Local</div>
   </div>
 
@@ -362,6 +446,9 @@ table.dtbl{width:100%;border-collapse:collapse}
     <div class="nav-sep" id="nav-enc-label">Encuesta activa</div>
     <button class="nav-btn" data-p="dashboard"><span class="nav-icon">▦</span>Dashboard</button>
     <button class="nav-btn" data-p="provincias"><span class="nav-icon">⊛</span>Provincias</button>
+    <button class="nav-btn" data-p="estrato4"><span class="nav-icon">④</span>Estrato 4</button>
+    <button class="nav-btn" data-p="meta"><span class="nav-icon">⬡</span>Pauta Meta</button>
+    <button class="nav-btn" data-p="velocidad"><span class="nav-icon">◎</span>Velocidad</button>
     <button class="nav-btn" data-p="casos"><span class="nav-icon">⊞</span>Casos</button>
     <button class="nav-btn" style="color:var(--muted);font-size:11px" onclick="volverHome()"><span class="nav-icon">←</span>Volver</button>
   </div>
@@ -544,6 +631,24 @@ table.dtbl{width:100%;border-collapse:collapse}
       </div>
     </div>
   </div>
+</div>
+
+<!-- ══ ESTRATO 4 ══ -->
+<div id="p-estrato4" class="panel">
+  <div class="pg-head">
+    <div>
+      <div class="pg-title">Estrato 4</div>
+      <div class="pg-sub">Casos del estrato 4 por provincia y departamento</div>
+    </div>
+    <div class="btn-row">
+      <select id="e4-estrato-sel" onchange="renderEstrato4()" style="background:var(--s2);border:1px solid var(--b2);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:12px;padding:7px 10px;outline:none">
+        <option value="4">Estrato 4</option>
+      </select>
+      <input id="e4-search" placeholder="Buscar provincia..." oninput="renderEstrato4()" style="background:var(--s2);border:1px solid var(--b2);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:12px;padding:7px 10px;outline:none;width:160px">
+    </div>
+  </div>
+  <div id="e4-kpis" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px"></div>
+  <div id="e4-content"></div>
 </div>
 
 <!-- ══ PROVINCIAS ══ -->
@@ -758,6 +863,60 @@ table.dtbl{width:100%;border-collapse:collapse}
   </div>
 </div>
 
+<!-- ══ ESTRATO 4 ══ -->
+<div id="p-estrato4" class="panel">
+  <div class="pg-head">
+    <div>
+      <div class="pg-title">Estrato 4</div>
+      <div class="pg-sub" id="e4-sub">Casos en estrato 4 por provincia y departamento</div>
+    </div>
+    <div class="btn-row">
+      <input id="e4-search" placeholder="Buscar provincia o depto..." oninput="renderEstrato4()"
+        style="background:var(--s2);border:1px solid var(--b2);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:12px;padding:7px 10px;outline:none;width:220px">
+      <select id="e4-sort" onchange="renderEstrato4()"
+        style="background:var(--s2);border:1px solid var(--b2);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:12px;padding:7px 10px;outline:none">
+        <option value="casos">Mayor a menor</option>
+        <option value="alfa">Alfabético</option>
+      </select>
+    </div>
+  </div>
+  <div id="e4-kpis" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px"></div>
+  <div id="e4-table-wrap"></div>
+</div>
+
+<!-- ══ VELOCIDAD ══ -->
+<div id="p-velocidad" class="panel">
+  <div class="pg-head">
+    <div><div class="pg-title">Velocidad del campo</div><div class="pg-sub">Casos por día y estimación de cierre</div></div>
+  </div>
+  <div id="vel-eta-wrap"></div>
+  <div class="card">
+    <div class="card-hd">Casos por día</div>
+    <div id="vel-bars-wrap" style="padding-top:8px"></div>
+  </div>
+</div>
+
+<!-- ══ META ══ -->
+<div id="p-meta" class="panel">
+  <div class="pg-head">
+    <div><div class="pg-title">Pauta Meta</div><div class="pg-sub">Conjuntos de anuncios recomendados según avance de cuotas</div></div>
+    <button class="btn btn-w" onclick="renderMeta()">↺ Actualizar</button>
+  </div>
+  <div class="card" style="margin-bottom:14px">
+    <div class="card-hd">Cómo usar este panel</div>
+    <p style="font-size:12.5px;color:var(--muted);line-height:1.8">
+      El sistema analiza el avance de cada cuota y sugiere qué conjuntos de anuncios pausar o reducir en Meta Ads.
+      Agrupá tus conjuntos por <strong style="color:var(--text)">estrato × grupo de edad × género</strong> y usá los mismos nombres acá para que coincidan.
+    </p>
+    <div style="margin-top:12px">
+      <label style="font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:6px">Umbral para "reducir" (%)</label>
+      <input type="number" id="meta-threshold" value="80" min="50" max="99" style="background:var(--s2);border:1px solid var(--b2);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:13px;padding:6px 10px;width:80px;outline:none" oninput="renderMeta()">
+      <span style="font-size:12px;color:var(--muted);margin-left:8px">Por encima de este % → reducir alcance</span>
+    </div>
+  </div>
+  <div id="meta-table-wrap"></div>
+</div>
+
 </div><!-- /main -->
 </div><!-- /shell -->
 
@@ -961,9 +1120,21 @@ let APP = {...DFLT};
 function save(){
   try {
     localStorage.setItem('pulsov4', JSON.stringify(APP));
-    if(window._fbRef && window._fbSet){
+    // Write only config fields to Firebase (not cases)
+    const configData = {
+      muestras: APP.muestras || [],
+      activeSurveys: APP.activeSurveys || [],
+      activeMuestraId: APP.activeMuestraId || null,
+      n: APP.n || 2500,
+      warnPct: APP.warnPct || 80,
+      surveys: APP.surveys || [],
+      cost: APP.cost || {},
+      nextId: APP.nextId || 1,
+    };
+    const fbRef = window._fbConfigRef || window._fbRef;
+    if(fbRef && window._fbSet){
       window._suppressRemote = true;
-      window._fbSet(window._fbRef, JSON.stringify(APP))
+      window._fbSet(fbRef, JSON.stringify(configData))
         .then(()=>{ showSync('ok','● Guardado'); setTimeout(()=>window._suppressRemote=false,1500); })
         .catch(()=>{ showSync('err','● Error sync'); window._suppressRemote=false; });
     }
@@ -1685,6 +1856,9 @@ function renderDash(){
     </div>`;
   } else if(progEl) progEl.innerHTML='';
 
+  // Semaforo
+  renderSemaforo(tot, totTgt, closed, keys.length, cells);
+
   // Empty state
   if(!keys.length||!m){
     const qgrid=el('dash-qgrid'); if(!qgrid)return;
@@ -1771,19 +1945,33 @@ function renderQuotaGrid(cells, m){
     </div>`;
   };
 
-  // rows = estratos, cols = age groups
+  // rows = estratos (sorted: incomplete first, then complete), cols = age groups
   let html='';
   generos.forEach(g=>{
     const gColor=g==='Masculino'?'var(--blue)':'var(--purple)';
 
+    // Sort estratos: incomplete first (by % ascending), then complete, all sorted by estrato name
+    const sortedEstratos = [...estratos].sort((a,b)=>{
+      const totA=ages.reduce((s,ag)=>{const c=cellMap[ck(g,ag,a)];return s+(c?c.cur:0);},0);
+      const tgtA=ages.reduce((s,ag)=>{const c=cellMap[ck(g,ag,a)];return s+(c?c.tgt:0);},0);
+      const totB=ages.reduce((s,ag)=>{const c=cellMap[ck(g,ag,b)];return s+(c?c.cur:0);},0);
+      const tgtB=ages.reduce((s,ag)=>{const c=cellMap[ck(g,ag,b)];return s+(c?c.tgt:0);},0);
+      const pctA=tgtA>0?totA/tgtA:0, pctB=tgtB>0?totB/tgtB:0;
+      const doneA=pctA>=1, doneB=pctB>=1;
+      // completed go last
+      if(doneA!==doneB) return doneA?1:-1;
+      // within same group, sort by estrato name
+      return a.localeCompare(b,'es',{numeric:true});
+    });
+
     // row totals (per estrato), col totals (per age group)
-    const rowTotals=estratos.map(e=>({
+    const rowTotals=sortedEstratos.map(e=>({
       cur:ages.reduce((s,ag)=>{const c=cellMap[ck(g,ag,e)];return s+(c?c.cur:0);},0),
       tgt:ages.reduce((s,ag)=>{const c=cellMap[ck(g,ag,e)];return s+(c?c.tgt:0);},0)
     }));
     const colTotals=ages.map(ag=>({
-      cur:estratos.reduce((s,e)=>{const c=cellMap[ck(g,ag,e)];return s+(c?c.cur:0);},0),
-      tgt:estratos.reduce((s,e)=>{const c=cellMap[ck(g,ag,e)];return s+(c?c.tgt:0);},0)
+      cur:sortedEstratos.reduce((s,e)=>{const c=cellMap[ck(g,ag,e)];return s+(c?c.cur:0);},0),
+      tgt:sortedEstratos.reduce((s,e)=>{const c=cellMap[ck(g,ag,e)];return s+(c?c.tgt:0);},0)
     }));
     const gTotal={cur:rowTotals.reduce((s,r)=>s+r.cur,0),tgt:rowTotals.reduce((s,r)=>s+r.tgt,0)};
 
@@ -1799,11 +1987,13 @@ function renderQuotaGrid(cells, m){
           <th style="color:var(--green)">Total</th>
         </tr></thead>
         <tbody>
-          ${estratos.map((e,ri)=>`<tr>
-            <td class="td-label">Estrato ${e}</td>
+          ${sortedEstratos.map((e,ri)=>{
+            const done=rowTotals[ri].tgt>0&&rowTotals[ri].cur>=rowTotals[ri].tgt;
+            return`<tr style="${done?'opacity:.55':''}">
+            <td class="td-label">${done?'✓ ':''} Estrato ${e}</td>
             ${ages.map(ag=>{const c=cellMap[ck(g,ag,e)]||{cur:0,tgt:APP.quotas[ck(g,ag,e)]||0};return`<td>${cellHtml(c.cur,c.tgt,_compact)}</td>`;}).join('')}
             <td class="td-total">${cellHtml(rowTotals[ri].cur,rowTotals[ri].tgt,_compact)}</td>
-          </tr>`).join('')}
+          </tr>`;}).join('')}
         </tbody>
         <tfoot><tr>
           <td class="td-label" style="font-size:10px;font-weight:700;text-transform:uppercase;color:var(--muted);letter-spacing:.08em">Total</td>
@@ -2123,7 +2313,7 @@ function doReset(){
 // SURVEYMONKEY SYNC
 // ══════════════════════════════════════════
 let _smQuestions = []; // cached question list for selected survey
-let _smServerUrl = '';
+let _smServerUrl = 'https://pulso-sync-production.up.railway.app';
 
 function getSyncServerUrl() {
   return (document.getElementById('sm-server-url')?.value || '').trim().replace(/\/$/, '');
@@ -2362,9 +2552,11 @@ function updateSyncStatus(active, label) {
   if (lbl) lbl.textContent = label || (active ? 'Activo' : 'Inactivo');
 }
 
-// Restore saved server URL on load
+// Restore saved server URL — from APP state (shared via Firebase) or localStorage fallback
 (function() {
-  const saved = localStorage.getItem('pulso_sync_url');
+  const fromApp = APP.syncServerUrl;
+  const fromLocal = localStorage.getItem('pulso_sync_url');
+  const saved = fromApp || fromLocal;
   if (saved) {
     const el = document.getElementById('sm-server-url');
     if (el) el.value = saved;
@@ -2622,6 +2814,10 @@ async function startSync(){
       if(msgEl){ msgEl.textContent = `✓ ${data.message}`; msgEl.style.color = 'var(--green)'; }
       updateSyncStatus(true, `Cada ${intervalMinutes} min`);
       localStorage.setItem('pulso_sync_config', JSON.stringify({ url, surveyId, muestraId, intervalMinutes }));
+      // Save server URL globally so all devices get it
+      APP.syncServerUrl = url;
+      _smServerUrl = url;
+      save();
       // Add to home grid
       const cleanTitle = surveyTitle.replace(/\s*\(\d+ respuestas\)$/, '');
       addSurveyToHome(surveyId, cleanTitle, muestraId, n, colMap, intervalMinutes);
@@ -2641,9 +2837,314 @@ function goPanel(p){
   const panel = document.getElementById('p-'+p); if(panel) panel.classList.add('on');
   if(p==='home'){ renderHome(); }
   if(p==='provincias') renderProvincias();
+  if(p==='estrato4') renderEstrato4();
+  if(p==='velocidad') renderVelocidad();
+  if(p==='meta') renderMeta();
   if(p==='muestras') renderMuestras();
   if(p==='encuestas') renderEncuestas();
   if(p==='sync') populateSMMusetraSelect();
+}
+
+// ══════════════════════════════════════════
+// OBSERVER MODE
+// ══════════════════════════════════════════
+(function(){
+  const params = new URLSearchParams(window.location.search);
+  if(params.get('view') === '1' || params.get('observer') === '1'){
+    document.body.classList.add('observer-mode');
+    // Skip password for observers
+    sessionStorage.setItem('pulso_auth','1');
+  }
+})();
+
+// ══════════════════════════════════════════
+// SEMAFORO
+// ══════════════════════════════════════════
+function renderSemaforo(tot, totTgt, closed, totalQuotas, cells){
+  const el = document.getElementById('dash-semaforo'); if(!el) return;
+  if(!totTgt){ el.innerHTML=''; return; }
+  const pct = Math.round(tot/totTgt*100);
+  const warn = cells ? cells.filter(c=>c.st==='warn').length : 0;
+  const restantes = totTgt - tot;
+
+  // ETA calc
+  const etaDays = calcETA();
+  const etaTxt = etaDays === null ? '—' : etaDays <= 0 ? '¡Hoy!' : etaDays === 1 ? 'Mañana' : `${etaDays} días`;
+
+  // Overall status
+  let overallCls, overallIcon, overallTxt;
+  if(pct >= 100){ overallCls='sem-red'; overallIcon='🏁'; overallTxt='Campo cerrado'; }
+  else if(closed > 0 || warn > 0){ overallCls='sem-amber'; overallIcon='⚠️'; overallTxt='Cuotas en límite'; }
+  else if(tot > 0){ overallCls='sem-green'; overallIcon='✅'; overallTxt='Campo activo'; }
+  else { overallCls='sem-grey'; overallIcon='⏳'; overallTxt='Sin casos'; }
+
+  el.innerHTML = `<div class="semaforo">
+    <div class="sem-card ${overallCls}">
+      <div class="sem-icon">${overallIcon}</div>
+      <div class="sem-val" style="color:${overallCls==='sem-green'?'var(--green)':overallCls==='sem-amber'?'var(--amber)':overallCls==='sem-red'?'var(--red)':'var(--muted)'}">${pct}%</div>
+      <div class="sem-lbl">Avance</div>
+      <div class="sem-sub">${tot.toLocaleString('es-AR')} / ${totTgt.toLocaleString('es-AR')}</div>
+    </div>
+    <div class="sem-card ${closed>0?'sem-red':'sem-green'}">
+      <div class="sem-icon">${closed>0?'🔴':'🟢'}</div>
+      <div class="sem-val" style="color:${closed>0?'var(--red)':'var(--green)'}">${closed}</div>
+      <div class="sem-lbl">Cuotas cerradas</div>
+      <div class="sem-sub">de ${totalQuotas} totales</div>
+    </div>
+    <div class="sem-card ${etaDays!==null&&etaDays<=3?'sem-amber':'sem-green'}">
+      <div class="sem-icon">📅</div>
+      <div class="sem-val" style="color:var(--green)">${etaTxt}</div>
+      <div class="sem-lbl">Estimación cierre</div>
+      <div class="sem-sub">${restantes>0?restantes.toLocaleString('es-AR')+' restantes':'Completado'}</div>
+    </div>
+  </div>`;
+}
+
+// ══════════════════════════════════════════
+// VELOCITY + ETA
+// ══════════════════════════════════════════
+function getCasesByDay(){
+  const cases = (typeof getCases==='function') ? getCases() : (APP.cases||[]);
+  const byDay = {};
+  cases.forEach(c => {
+    if(!c.ts) return;
+    const d = new Date(c.ts);
+    const key = d.toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit'});
+    byDay[key] = (byDay[key]||0) + 1;
+  });
+  return byDay;
+}
+
+function calcETA(){
+  const cases = (typeof getCases==='function') ? getCases() : (APP.cases||[]);
+  const quotas = APP.quotas || {};
+  const totTgt = Object.values(quotas).reduce((a,b)=>a+b,0);
+  const tot = cases.length;
+  if(!totTgt || tot >= totTgt) return 0;
+
+  // Velocity: cases per day over last 3 days
+  const byDay = getCasesByDay();
+  const days = Object.values(byDay);
+  if(days.length < 1) return null;
+  const recent = days.slice(-3);
+  const avgPerDay = recent.reduce((a,b)=>a+b,0) / recent.length;
+  if(avgPerDay <= 0) return null;
+  return Math.ceil((totTgt - tot) / avgPerDay);
+}
+
+function renderVelocidad(){
+  const etaWrap = document.getElementById('vel-eta-wrap'); if(!etaWrap) return;
+  const barsWrap = document.getElementById('vel-bars-wrap'); if(!barsWrap) return;
+
+  const byDay = getCasesByDay();
+  const entries = Object.entries(byDay).slice(-14); // last 14 days
+  const maxVal = entries.length ? Math.max(...entries.map(e=>e[1])) : 1;
+  const etaDays = calcETA();
+  const cases = (typeof getCases==='function') ? getCases() : (APP.cases||[]);
+  const quotas = APP.quotas || {};
+  const totTgt = Object.values(quotas).reduce((a,b)=>a+b,0);
+  const avgPerDay = entries.length > 0 ? Math.round(entries.slice(-3).reduce((s,[,v])=>s+v,0)/Math.min(3,entries.length)) : 0;
+
+  // ETA card
+  etaWrap.innerHTML = `<div class="vel-eta" style="margin-bottom:18px">
+    <div class="vel-eta-icon">📅</div>
+    <div>
+      <div class="vel-eta-val">${etaDays===null?'Sin datos':etaDays<=0?'¡Completado!':etaDays===1?'Mañana':etaDays+' días'}</div>
+      <div class="vel-eta-lbl">Estimación de cierre al ritmo actual</div>
+    </div>
+    <div style="margin-left:auto;text-align:right">
+      <div style="font-family:var(--mono);font-size:22px;font-weight:700;color:var(--blue)">${avgPerDay}</div>
+      <div style="font-size:11px;color:var(--muted)">casos/día (promedio 3d)</div>
+    </div>
+    <div style="text-align:right">
+      <div style="font-family:var(--mono);font-size:22px;font-weight:700;color:var(--amber)">${totTgt>0?totTgt-cases.length:0}</div>
+      <div style="font-size:11px;color:var(--muted)">casos restantes</div>
+    </div>
+  </div>`;
+
+  if(!entries.length){
+    barsWrap.innerHTML = '<div style="color:var(--muted);text-align:center;padding:20px">Sin datos de fechas disponibles</div>';
+    return;
+  }
+
+  barsWrap.innerHTML = entries.map(([date, count]) => {
+    const pct = maxVal > 0 ? Math.round(count/maxVal*100) : 0;
+    const color = count === maxVal ? 'var(--green)' : count >= avgPerDay ? 'var(--blue)' : 'var(--muted2)';
+    return `<div class="vel-bar-row">
+      <span class="vel-date">${date}</span>
+      <div class="vel-bar-wrap">
+        <div class="vel-bar-fill" style="width:${pct}%;background:${color}">
+          ${pct > 15 ? `<span class="vel-bar-val">${count}</span>` : ''}
+        </div>
+      </div>
+      ${pct <= 15 ? `<span style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-left:6px">${count}</span>` : ''}
+    </div>`;
+  }).join('');
+}
+
+// ══════════════════════════════════════════
+// META ADS PANEL
+// ══════════════════════════════════════════
+function renderMeta(){
+  const wrap = document.getElementById('meta-table-wrap'); if(!wrap) return;
+  const threshold = parseInt(document.getElementById('meta-threshold')?.value||'80');
+  const cases = (typeof getCases==='function') ? getCases() : (APP.cases||[]);
+  const quotas = APP.quotas || {};
+  const keys = Object.keys(quotas).filter(k=>quotas[k]>0);
+  if(!keys.length){ wrap.innerHTML='<div class="card" style="color:var(--muted);text-align:center;padding:30px">Activá una muestra para ver las recomendaciones</div>'; return; }
+
+  // Build recommendations per quota
+  const rows = keys.map(k => {
+    const [g,ag,e] = cParts(k);
+    const tgt = quotas[k];
+    const cur = cases.filter(c=>c.gen===g&&c.ageGrp===ag&&c.estrato===e).length;
+    const pct = tgt > 0 ? Math.round(cur/tgt*100) : 0;
+    let action, actionClass, actionTxt, priority;
+    if(pct >= 100){ action='PAUSAR'; actionClass='meta-action-pause'; actionTxt='Cuota completa — pausar conjunto'; priority=0; }
+    else if(pct >= threshold){ action='REDUCIR'; actionClass='meta-action-reduce'; actionTxt=`${pct}% alcanzado — reducir alcance`; priority=1; }
+    else { action='ACTIVO'; actionClass='meta-action-ok'; actionTxt=`${pct}% — continuar normalmente`; priority=2; }
+    return { k, g, ag, e, tgt, cur, pct, action, actionClass, actionTxt, priority };
+  }).sort((a,b) => a.priority - b.priority || a.e.localeCompare(b.e) || a.g.localeCompare(b.g));
+
+  const toPause = rows.filter(r=>r.action==='PAUSAR').length;
+  const toReduce = rows.filter(r=>r.action==='REDUCIR').length;
+
+  wrap.innerHTML = `
+    <div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+      <div style="background:rgba(224,90,90,.1);border:1px solid rgba(224,90,90,.3);border-radius:10px;padding:10px 16px;min-width:120px">
+        <div style="font-family:var(--mono);font-size:22px;font-weight:800;color:var(--red)">${toPause}</div>
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-top:3px">Pausar</div>
+      </div>
+      <div style="background:rgba(240,166,46,.1);border:1px solid rgba(240,166,46,.3);border-radius:10px;padding:10px 16px;min-width:120px">
+        <div style="font-family:var(--mono);font-size:22px;font-weight:800;color:var(--amber)">${toReduce}</div>
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-top:3px">Reducir</div>
+      </div>
+      <div style="background:rgba(62,207,142,.08);border:1px solid rgba(62,207,142,.2);border-radius:10px;padding:10px 16px;min-width:120px">
+        <div style="font-family:var(--mono);font-size:22px;font-weight:800;color:var(--green)">${rows.length-toPause-toReduce}</div>
+        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-top:3px">Activos</div>
+      </div>
+    </div>
+    <div style="background:var(--s1);border:1px solid var(--border);border-radius:12px;overflow:hidden">
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 80px 80px 140px;padding:10px 16px;background:var(--s2);border-bottom:1px solid var(--border);font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);gap:8px">
+        <span>Género</span><span>Edad</span><span>Estrato</span><span>Casos</span><span>Avance</span><span>Acción</span>
+      </div>
+      ${rows.map(r=>`<div class="meta-quota-row" style="display:grid;grid-template-columns:1fr 1fr 1fr 80px 80px 140px;gap:8px;align-items:center">
+        <span style="font-size:13px;font-weight:600">${r.g}</span>
+        <span style="font-family:var(--mono);font-size:12px">${r.ag}</span>
+        <span style="font-family:var(--mono);font-size:12px">Est. ${r.e}</span>
+        <span style="font-family:var(--mono);font-size:13px;font-weight:700">${r.cur}/${r.tgt}</span>
+        <span style="font-family:var(--mono);font-size:13px;font-weight:700;color:${r.pct>=100?'var(--red)':r.pct>=threshold?'var(--amber)':'var(--green)'}">${r.pct}%</span>
+        <span class="meta-action-badge ${r.actionClass}">${r.action}</span>
+      </div>`).join('')}
+    </div>`;
+}
+
+// ══════════════════════════════════════════
+// ESTRATO 4
+// ══════════════════════════════════════════
+function renderEstrato4(){
+  const wrap = document.getElementById('e4-table-wrap'); if(!wrap) return;
+  const cases = (typeof getCases==='function') ? getCases() : (APP.cases||[]);
+  const search = (document.getElementById('e4-search')?.value||'').toLowerCase();
+  const sortBy = document.getElementById('e4-sort')?.value || 'casos';
+
+  const e4cases = cases.filter(c => String(c.estrato) === '4');
+
+  const subEl = document.getElementById('e4-sub');
+  if(subEl) subEl.textContent = `${e4cases.length} casos en estrato 4`;
+
+  const byProv = {};
+  e4cases.forEach(c => {
+    const prov = c.prov || '(sin provincia)';
+    const depto = c.depto || '(sin depto)';
+    if(!byProv[prov]) byProv[prov] = {};
+    if(!byProv[prov][depto]) byProv[prov][depto] = { masc:0, fem:0, total:0 };
+    byProv[prov][depto].total++;
+    if(c.gen==='Masculino') byProv[prov][depto].masc++;
+    else if(c.gen==='Femenino') byProv[prov][depto].fem++;
+  });
+
+  const kpiEl = document.getElementById('e4-kpis');
+  if(kpiEl){
+    const provCount = Object.keys(byProv).length;
+    const deptoCount = Object.values(byProv).reduce((s,d)=>s+Object.keys(d).length,0);
+    const masc = e4cases.filter(c=>c.gen==='Masculino').length;
+    const fem = e4cases.filter(c=>c.gen==='Femenino').length;
+    kpiEl.innerHTML = [
+      ['Total casos', e4cases.length, 'var(--green)'],
+      ['Provincias', provCount, 'var(--blue)'],
+      ['Departamentos', deptoCount, 'var(--purple)'],
+      ['Masculino', masc, 'var(--blue)'],
+      ['Femenino', fem, 'var(--purple)'],
+    ].map(([l,v,c])=>`<div style="background:var(--s2);border:1px solid var(--border);border-radius:10px;padding:12px 16px;min-width:120px">
+      <div style="font-family:var(--mono);font-size:22px;font-weight:700;color:${c}">${v}</div>
+      <div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-top:3px">${l}</div>
+    </div>`).join('');
+  }
+
+  if(!e4cases.length){
+    wrap.innerHTML=`<div style="text-align:center;padding:40px;color:var(--muted)">No hay casos en estrato 4 todavía</div>`;
+    return;
+  }
+
+  let provEntries = Object.entries(byProv);
+  if(search) provEntries = provEntries.filter(([p,d])=>
+    p.toLowerCase().includes(search) || Object.keys(d).some(dep=>dep.toLowerCase().includes(search))
+  );
+  if(sortBy==='casos') provEntries.sort((a,b)=>Object.values(b[1]).reduce((s,x)=>s+x.total,0)-Object.values(a[1]).reduce((s,x)=>s+x.total,0));
+  else provEntries.sort((a,b)=>a[0].localeCompare(b[0],'es'));
+
+  let html = '';
+  provEntries.forEach(([prov, deptos]) => {
+    const provTotal = Object.values(deptos).reduce((s,x)=>s+x.total,0);
+    const provMasc = Object.values(deptos).reduce((s,x)=>s+x.masc,0);
+    const provFem = Object.values(deptos).reduce((s,x)=>s+x.fem,0);
+    let deptoEntries = Object.entries(deptos);
+    if(sortBy==='casos') deptoEntries.sort((a,b)=>b[1].total-a[1].total);
+    else deptoEntries.sort((a,b)=>a[0].localeCompare(b[0],'es'));
+    if(search && !prov.toLowerCase().includes(search)){
+      deptoEntries = deptoEntries.filter(([d])=>d.toLowerCase().includes(search));
+    }
+    html += `<div style="margin-bottom:14px;background:var(--s1);border:1px solid var(--border);border-radius:12px;overflow:hidden">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:var(--s2);border-bottom:1px solid var(--border)">
+        <div style="font-weight:700;font-size:14px">${prov}</div>
+        <div style="font-family:var(--mono);font-size:12px;color:var(--muted)">
+          <span style="color:var(--green);font-weight:700">${provTotal}</span> casos ·
+          <span style="color:var(--blue)">${provMasc} M</span> ·
+          <span style="color:var(--purple)">${provFem} F</span>
+        </div>
+      </div>
+      <table style="width:100%;border-collapse:collapse">
+        <thead><tr>
+          <th style="text-align:left;padding:8px 16px;font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border)">Departamento</th>
+          <th style="text-align:center;padding:8px 12px;font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border)">Total</th>
+          <th style="text-align:center;padding:8px 12px;font-size:10px;font-weight:700;text-transform:uppercase;color:var(--blue);border-bottom:1px solid var(--border)">Masc.</th>
+          <th style="text-align:center;padding:8px 12px;font-size:10px;font-weight:700;text-transform:uppercase;color:var(--purple);border-bottom:1px solid var(--border)">Fem.</th>
+          <th style="text-align:left;padding:8px 16px;font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border)">Dist. en provincia</th>
+        </tr></thead>
+        <tbody>
+          ${deptoEntries.map(([depto,d],i)=>{
+            const pct = provTotal > 0 ? Math.round(d.total/provTotal*100) : 0;
+            return`<tr style="border-bottom:1px solid var(--border);${i%2===1?'background:rgba(255,255,255,.015)':''}">
+              <td style="padding:9px 16px;font-size:13px">${depto}</td>
+              <td style="padding:9px 12px;text-align:center;font-family:var(--mono);font-weight:700;color:var(--green)">${d.total}</td>
+              <td style="padding:9px 12px;text-align:center;font-family:var(--mono);color:var(--blue)">${d.masc}</td>
+              <td style="padding:9px 12px;text-align:center;font-family:var(--mono);color:var(--purple)">${d.fem}</td>
+              <td style="padding:9px 16px">
+                <div style="display:flex;align-items:center;gap:8px">
+                  <div style="flex:1;background:var(--s3);border-radius:3px;height:5px;overflow:hidden;min-width:80px">
+                    <div style="height:100%;border-radius:3px;background:var(--green);width:${pct}%"></div>
+                  </div>
+                  <span style="font-family:var(--mono);font-size:11px;color:var(--muted);width:32px;text-align:right">${pct}%</span>
+                </div>
+              </td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>`;
+  });
+  wrap.innerHTML = html;
 }
 
 // ══════════════════════════════════════════
@@ -2752,21 +3253,125 @@ async function dashSyncNow(){
 // sync bar updated directly in renderAll
 
 // ══════════════════════════════════════════
+// ESTRATO 4 PANEL
+// ══════════════════════════════════════════
+function renderEstrato4(){
+  const content = document.getElementById('e4-content');
+  const kpisEl = document.getElementById('e4-kpis');
+  const selEl = document.getElementById('e4-estrato-sel');
+  const searchEl = document.getElementById('e4-search');
+  if(!content) return;
+
+  const cases = getCases();
+  const m = getCurrentMuestra();
+
+  // Populate estrato selector dynamically
+  if(selEl && m){
+    const cur = selEl.value;
+    selEl.innerHTML = m.estratos.map(e=>`<option value="${e}" ${e===cur?'selected':''}>Estrato ${e}</option>`).join('');
+  }
+
+  const targetEstrato = selEl ? selEl.value : '4';
+  const search = (searchEl ? searchEl.value : '').toLowerCase();
+
+  const e4cases = cases.filter(c => c.estrato === targetEstrato);
+  const total = e4cases.length;
+  const tgt = Object.entries(getCases().length ? getQuotas() : {})
+    .filter(([k]) => cParts(k)[2] === targetEstrato)
+    .reduce((s,[,v])=>s+v, 0);
+
+  // KPIs
+  if(kpisEl){
+    kpisEl.innerHTML = `
+      <div class="kpi hi"><div class="kv">${total.toLocaleString('es-AR')}</div><div class="kl">Casos Estrato ${targetEstrato}</div></div>
+      <div class="kpi"><div class="kv" style="color:var(--amber)">${tgt>0?Math.round(total/tgt*100)+'%':'—'}</div><div class="kl">Avance</div></div>
+      <div class="kpi"><div class="kv" style="color:var(--purple)">${e4cases.filter(c=>parseInt(c.edad)<=29).length.toLocaleString('es-AR')}</div><div class="kl">Jóvenes ≤29</div></div>`;
+  }
+
+  if(!total){
+    content.innerHTML = `<div class="empty-state"><div class="empty-icon">★</div><div class="empty-sub">No hay casos del Estrato ${targetEstrato} cargados.</div></div>`;
+    return;
+  }
+
+  // Group by provincia → departamento
+  const byProv = {};
+  e4cases.forEach(c => {
+    const prov = c.prov || 'Sin provincia';
+    const depto = c.depto || 'Sin departamento';
+    if(!byProv[prov]) byProv[prov] = {};
+    if(!byProv[prov][depto]) byProv[prov][depto] = {total:0, masc:0, fem:0, jovenes:0};
+    byProv[prov][depto].total++;
+    if(norm(c.gen).includes('masc')) byProv[prov][depto].masc++;
+    else byProv[prov][depto].fem++;
+    if(parseInt(c.edad)<=29) byProv[prov][depto].jovenes++;
+  });
+
+  // Sort provs by case count desc
+  let provList = Object.entries(byProv).sort((a,b)=>{
+    const ta = Object.values(a[1]).reduce((s,d)=>s+d.total,0);
+    const tb = Object.values(b[1]).reduce((s,d)=>s+d.total,0);
+    return tb-ta;
+  });
+
+  if(search) provList = provList.filter(([p])=>p.toLowerCase().includes(search));
+
+  let html = '';
+  provList.forEach(([prov, deptos]) => {
+    const provTotal = Object.values(deptos).reduce((s,d)=>s+d.total,0);
+    const deptoList = Object.entries(deptos).sort((a,b)=>b[1].total-a[1].total);
+    html += `<div class="card" style="margin-bottom:12px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <div style="font-size:15px;font-weight:700">${prov}</div>
+        <div style="font-family:var(--mono);font-size:13px;font-weight:700;color:var(--green)">${provTotal} casos</div>
+      </div>
+      <table style="width:100%;border-collapse:collapse;font-size:12px">
+        <thead><tr>
+          <th style="background:var(--s2);padding:7px 10px;text-align:left;font-size:9.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border)">Departamento</th>
+          <th style="background:var(--s2);padding:7px 10px;text-align:center;font-size:9.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--blue);border-bottom:1px solid var(--border)">Masc.</th>
+          <th style="background:var(--s2);padding:7px 10px;text-align:center;font-size:9.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--purple);border-bottom:1px solid var(--border)">Fem.</th>
+          <th style="background:var(--s2);padding:7px 10px;text-align:center;font-size:9.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border)">Jóvenes</th>
+          <th style="background:var(--s2);padding:7px 10px;text-align:center;font-size:9.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--green);border-bottom:1px solid var(--border)">Total</th>
+        </tr></thead>
+        <tbody>
+        ${deptoList.map(([depto,d])=>`<tr style="border-bottom:1px solid var(--border)">
+          <td style="padding:8px 10px;font-weight:500">${depto}</td>
+          <td style="padding:8px 10px;text-align:center;font-family:var(--mono);color:var(--blue)">${d.masc||'—'}</td>
+          <td style="padding:8px 10px;text-align:center;font-family:var(--mono);color:var(--purple)">${d.fem||'—'}</td>
+          <td style="padding:8px 10px;text-align:center;font-family:var(--mono);color:var(--muted)">${d.jovenes||'—'}</td>
+          <td style="padding:8px 10px;text-align:center;font-family:var(--mono);font-weight:700;color:var(--green)">${d.total}</td>
+        </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>`;
+  });
+
+  content.innerHTML = html || `<div class="empty-state"><div class="empty-sub">Sin resultados para "${search}"</div></div>`;
+}
+
+// ══════════════════════════════════════════
 // INIT
 // ══════════════════════════════════════════
 load();
 if(!APP.activeSurveys) APP.activeSurveys = [];
 if(!APP.surveys) APP.surveys = [];
+// Observer mode via URL param
+(function(){
+  const p=new URLSearchParams(window.location.search);
+  if(p.get('view')==='1'||p.get('observer')==='1'){
+    document.body.classList.add('observer-mode');
+    sessionStorage.setItem('pulso_auth','1');
+  }
+})();
 renderHome();
 renderMuestras();
 renderEncuestas();
 renderCostWidget();
 updateCargarMuestraInfo();
 populateManualProvs();
-// restore server url
+// pre-fill server url field
 (function(){
-  const saved = localStorage.getItem('pulso_sync_url');
-  if(saved){ const el=document.getElementById('sm-server-url'); if(el) el.value=saved; _smServerUrl=saved; }
+  const el=document.getElementById('sm-server-url');
+  if(el) el.value=_smServerUrl;
 })();
 </script>
 </body>
