@@ -1,5 +1,4 @@
 
-
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -1622,9 +1621,9 @@ function renderAll(){
   renderTable();
   renderSidebar();
   renderProvincias();
-  // jovenes KPI
   const jEl=document.getElementById('kpi-jovenes'); if(jEl)jEl.textContent=countJovenes().toLocaleString('es-AR');
   updateCost();
+  updateDashSyncBar();
 }
 
 // ══════════════════════════════════════════
@@ -2337,7 +2336,7 @@ async function stopSync() {
   const url = getSyncServerUrl() || _smServerUrl;
   if (!url) return;
   try {
-    await fetch(`${url}/sync/stop`, { method: 'DELETE' });
+    await fetch(`${url}/sync/stop`, { method: 'POST' });
     updateSyncStatus(false, 'Detenido');
     const msgEl = document.getElementById('sm-sync-msg');
     if (msgEl) { msgEl.textContent = 'Sync detenido'; msgEl.style.color = 'var(--muted)'; }
@@ -2683,7 +2682,7 @@ async function dashSyncStop(){
   const url = getDashSyncUrl();
   if(!url){ return; }
   try {
-    await fetch(`${url}/sync/stop`, { method: 'DELETE' });
+    await fetch(`${url}/sync/stop`, { method: 'POST' });
     const idx = APP.currentSurveyIdx;
     if(idx != null && APP.activeSurveys[idx]){
       APP.activeSurveys[idx].syncActive = false;
@@ -2707,12 +2706,7 @@ async function dashSyncNow(){
   }
 }
 
-// Patch renderDash to also update sync bar
-const _origRenderDash = renderDash;
-function renderDash(){
-  _origRenderDash();
-  updateDashSyncBar();
-}
+// sync bar updated directly in renderAll
 
 // ══════════════════════════════════════════
 // INIT
