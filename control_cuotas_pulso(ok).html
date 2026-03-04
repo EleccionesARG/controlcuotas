@@ -273,6 +273,45 @@ table.dtbl{width:100%;border-collapse:collapse}
 
 /* encode special chars for CSS content */
 .encuestas-saved .enc-card{background:var(--s1);border:1px solid var(--border);border-radius:11px;padding:18px 20px;margin-bottom:10px;display:grid;grid-template-columns:1fr auto;gap:14px}
+
+/* ── HOME ── */
+.home-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px;margin-bottom:24px}
+.enc-home-card{background:var(--s1);border:1px solid var(--border);border-radius:14px;padding:22px 24px;cursor:pointer;transition:all .15s;position:relative;overflow:hidden}
+.enc-home-card:hover{border-color:var(--green);transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,0,0,.3)}
+.enc-home-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;border-radius:14px 14px 0 0}
+.enc-home-card.st-ok::before{background:var(--green)}
+.enc-home-card.st-warn::before{background:var(--amber)}
+.enc-home-card.st-done::before{background:var(--red)}
+.enc-home-card.st-empty::before{background:var(--s3)}
+.ehc-title{font-size:16px;font-weight:700;margin-bottom:4px;line-height:1.3}
+.ehc-muestra{font-size:11px;color:var(--muted);font-family:var(--mono);margin-bottom:14px}
+.ehc-kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px}
+.ehc-kpi{background:var(--s2);border-radius:8px;padding:9px 10px}
+.ehc-kv{font-family:var(--mono);font-size:18px;font-weight:700;line-height:1}
+.ehc-kl{font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-top:3px}
+.ehc-prog-track{background:var(--s3);border-radius:4px;height:6px;overflow:hidden;margin-bottom:6px}
+.ehc-prog-fill{height:100%;border-radius:4px;transition:width .6s ease}
+.ehc-prog-label{display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px;color:var(--muted)}
+.ehc-footer{display:flex;justify-content:space-between;align-items:center;margin-top:14px;padding-top:12px;border-top:1px solid var(--border)}
+.ehc-sync{font-size:10px;font-family:var(--mono);color:var(--muted2)}
+.ehc-btn{background:var(--green);color:#0a1f12;border:none;border-radius:7px;font-family:var(--sans);font-size:12px;font-weight:700;padding:7px 14px;cursor:pointer;transition:all .12s}
+.ehc-btn:hover{background:#4adeaa}
+.home-add-card{background:transparent;border:2px dashed var(--b2);border-radius:14px;padding:22px 24px;cursor:pointer;transition:all .15s;display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:180px;gap:10px;color:var(--muted)}
+.home-add-card:hover{border-color:var(--green);color:var(--green);background:rgba(62,207,142,.04)}
+.home-add-icon{font-size:28px;opacity:.6}
+.home-add-label{font-size:13px;font-weight:600}
+
+
+/* ── SYNC BAR ── */
+.sync-bar{display:flex;align-items:center;gap:10px;background:var(--s2);border:1px solid var(--border);border-radius:10px;padding:10px 16px;margin-bottom:18px;flex-wrap:wrap}
+.sync-bar-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;transition:background .3s}
+.sync-bar-dot.on{background:var(--green);box-shadow:0 0 6px var(--green)}
+.sync-bar-dot.off{background:var(--muted2)}
+.sync-bar-label{font-size:12px;font-weight:600;flex:1;min-width:120px}
+.sync-bar-meta{font-family:var(--mono);font-size:10px;color:var(--muted2)}
+.sync-bar-sep{width:1px;height:20px;background:var(--border);flex-shrink:0}
+.sync-interval-input{background:var(--s1);border:1px solid var(--b2);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:12px;padding:5px 8px;width:60px;outline:none;text-align:center}
+.sync-interval-input:focus{border-color:var(--green)}
 </style>
 </head>
 <body>
@@ -304,17 +343,20 @@ table.dtbl{width:100%;border-collapse:collapse}
     <div class="sync-dot" id="sync-status">● Local</div>
   </div>
 
+  <button class="nav-btn on" data-p="home"><span class="nav-icon">⌂</span>Inicio</button>
+
+  <div id="nav-encuesta-section" style="display:none">
+    <div class="nav-sep" id="nav-enc-label">Encuesta activa</div>
+    <button class="nav-btn" data-p="dashboard"><span class="nav-icon">▦</span>Dashboard</button>
+    <button class="nav-btn" data-p="provincias"><span class="nav-icon">⊛</span>Provincias</button>
+    <button class="nav-btn" data-p="casos"><span class="nav-icon">⊞</span>Casos</button>
+    <button class="nav-btn" style="color:var(--muted);font-size:11px" onclick="volverHome()"><span class="nav-icon">←</span>Volver</button>
+  </div>
+
   <div class="nav-sep">Configuración</div>
   <button class="nav-btn" data-p="muestras"><span class="nav-icon">◑</span>Muestras</button>
-  <button class="nav-btn" data-p="cargar"><span class="nav-icon">↑</span>Cargar datos</button>
-
-  <div class="nav-sep">Seguimiento</div>
-  <button class="nav-btn on" data-p="dashboard"><span class="nav-icon">▦</span>Dashboard</button>
-  <button class="nav-btn" data-p="provincias"><span class="nav-icon">⊛</span>Provincias</button>
-  <button class="nav-btn" data-p="casos"><span class="nav-icon">⊞</span>Casos</button>
-
-  <div class="nav-sep">Integración</div>
   <button class="nav-btn" data-p="sync"><span class="nav-icon">⟳</span>SurveyMonkey</button>
+
   <div class="nav-sep">Archivo</div>
   <button class="nav-btn" data-p="encuestas"><span class="nav-icon">◈</span>Encuestas</button>
   <button class="nav-btn" data-p="ayuda"><span class="nav-icon">?</span>Ayuda</button>
@@ -330,7 +372,7 @@ table.dtbl{width:100%;border-collapse:collapse}
 <div class="main">
 
 <!-- ══ DASHBOARD ══ -->
-<div id="p-dashboard" class="panel on">
+<div id="p-dashboard" class="panel">
   <div class="pg-head">
     <div>
       <div class="pg-title" id="dash-title">Dashboard</div>
@@ -344,6 +386,24 @@ table.dtbl{width:100%;border-collapse:collapse}
       </select>
       <button class="btn btn-w" id="btn-compact" onclick="toggleCompact()">Vista compacta</button>
     </div>
+  </div>
+
+  <!-- Sync bar -->
+  <div class="sync-bar" id="dash-sync-bar">
+    <div class="sync-bar-dot off" id="dsb-dot"></div>
+    <div>
+      <div class="sync-bar-label" id="dsb-label">Sin sincronización activa</div>
+      <div class="sync-bar-meta" id="dsb-meta">Configurá la encuesta en la pestaña SurveyMonkey</div>
+    </div>
+    <div class="sync-bar-sep"></div>
+    <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted)">
+      <span>Cada</span>
+      <input type="number" class="sync-interval-input" id="dsb-interval" value="15" min="5" max="120" title="Mínimo 5 min">
+      <span>min</span>
+    </div>
+    <button class="btn btn-g" style="font-size:12px;padding:7px 14px" id="dsb-start-btn" onclick="dashSyncStart()">▶ Iniciar sync</button>
+    <button class="btn btn-w" style="font-size:12px;padding:7px 14px" id="dsb-stop-btn" onclick="dashSyncStop()" style="display:none">■ Detener</button>
+    <button class="btn btn-w" style="font-size:12px;padding:7px 12px" onclick="dashSyncNow()" title="Sincronizar ahora">⟳</button>
   </div>
 
   <!-- KPI -->
@@ -407,6 +467,21 @@ table.dtbl{width:100%;border-collapse:collapse}
     <button class="btn btn-g" onclick="openNewMuestra()">+ Nueva muestra</button>
   </div>
   <div id="muestras-list"></div>
+</div>
+
+<!-- ══ HOME ══ -->
+<div id="p-home" class="panel on">
+  <div class="pg-head">
+    <div>
+      <div class="pg-title">Encuestas Pulso</div>
+      <div class="pg-sub">Seleccioná una encuesta para monitorear su avance</div>
+    </div>
+    <div class="btn-row">
+      <span id="home-sync-status" style="font-family:var(--mono);font-size:11px;color:var(--muted2)">● Sin sync</span>
+      <button class="btn btn-w" style="font-size:12px" onclick="syncNowAll()">⟳ Actualizar todo</button>
+    </div>
+  </div>
+  <div class="home-grid" id="home-enc-grid"></div>
 </div>
 
 <!-- ══ CARGAR DATOS ══ -->
@@ -2285,16 +2360,375 @@ function updateSyncStatus(active, label) {
 })();
 
 // ══════════════════════════════════════════
+// MULTI-SURVEY (HOME)
+// ══════════════════════════════════════════
+// APP.activeSurveys = [{
+//   smSurveyId, smTitle, muestraId, n, cases, quotas, lastSync, syncStats, colMap
+// }]
+// APP.currentSurveyIdx = null | number
+
+function getActiveSurveys(){ return APP.activeSurveys || []; }
+function getCurrentSurvey(){ 
+  const idx = APP.currentSurveyIdx;
+  if(idx == null) return null;
+  return getActiveSurveys()[idx] || null;
+}
+
+// Override APP.cases / APP.quotas to always point to current survey
+function getCases(){ return getCurrentSurvey()?.cases || APP.cases || []; }
+function getQuotas(){ return getCurrentSurvey()?.quotas || APP.quotas || {}; }
+function getCurrentN(){ return getCurrentSurvey()?.n || APP.n || 2500; }
+function getCurrentMuestra(){
+  const sv = getCurrentSurvey();
+  const mId = sv ? sv.muestraId : APP.activeMuestraId;
+  return APP.muestras.find(m => m.id === mId) || null;
+}
+
+// ── renderHome ──
+function renderHome(){
+  const grid = document.getElementById('home-enc-grid'); if(!grid) return;
+  const surveys = getActiveSurveys();
+  const muestras = APP.muestras || [];
+
+  let html = '';
+
+  surveys.forEach((sv, idx) => {
+    const m = muestras.find(x => x.id === sv.muestraId);
+    const cases = sv.cases || [];
+    const quotas = sv.quotas || {};
+    const keys = Object.keys(quotas).filter(k => quotas[k] > 0);
+    const tot = cases.length;
+    const tgt = Object.values(quotas).reduce((a,b)=>a+b,0);
+    const pct = tgt > 0 ? Math.round(tot/tgt*100) : 0;
+    const closed = keys.filter(k => { const [g,ag,e]=cParts(k); return cases.filter(c=>c.gen===g&&c.ageGrp===ag&&c.estrato===e).length >= quotas[k]; }).length;
+    const jovenes = cases.filter(c=>parseInt(c.edad)<=29).length;
+    const st = pct >= 100 ? 'st-done' : pct >= (APP.warnPct||80) ? 'st-warn' : tot > 0 ? 'st-ok' : 'st-empty';
+    const bc = pct >= 100 ? 'var(--red)' : pct >= (APP.warnPct||80) ? 'var(--amber)' : 'var(--green)';
+    const lastSync = sv.lastSync ? new Date(sv.lastSync).toLocaleString('es-AR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : 'Nunca';
+
+    html += `<div class="enc-home-card ${st}" onclick="enterSurvey(${idx})">
+      <div class="ehc-title">${sv.smTitle || 'Encuesta '+idx}</div>
+      <div class="ehc-muestra">◑ ${m ? m.nombre : 'Sin muestra'} · N=${(sv.n||0).toLocaleString('es-AR')}</div>
+      <div class="ehc-kpis">
+        <div class="ehc-kpi"><div class="ehc-kv" style="color:${bc}">${tot.toLocaleString('es-AR')}</div><div class="ehc-kl">Casos</div></div>
+        <div class="ehc-kpi"><div class="ehc-kv" style="color:var(--purple)">${jovenes.toLocaleString('es-AR')}</div><div class="ehc-kl">Jóvenes</div></div>
+        <div class="ehc-kpi"><div class="ehc-kv" style="color:var(--amber)">${closed}</div><div class="ehc-kl">Cerradas</div></div>
+      </div>
+      <div class="ehc-prog-track"><div class="ehc-prog-fill" style="width:${Math.min(pct,100)}%;background:${bc}"></div></div>
+      <div class="ehc-prog-label"><span>${pct}% completado</span><span>${tgt > 0 ? (tgt-tot > 0 ? (tgt-tot).toLocaleString('es-AR')+' restantes' : '✓ Completa') : 'Sin cuotas'}</span></div>
+      <div class="ehc-footer">
+        <span class="ehc-sync">⟳ ${lastSync}</span>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-d" style="font-size:11px;padding:5px 10px" onclick="event.stopPropagation();removeSurveyFromHome(${idx})">✕</button>
+          <button class="ehc-btn">Ver dashboard →</button>
+        </div>
+      </div>
+    </div>`;
+  });
+
+  // Add new card
+  html += `<div class="home-add-card" onclick="goPanel('sync')">
+    <div class="home-add-icon">+</div>
+    <div class="home-add-label">Agregar encuesta</div>
+    <div style="font-size:11px;text-align:center;line-height:1.6">Conectá una encuesta de SurveyMonkey<br>con su muestra y N objetivo</div>
+  </div>`;
+
+  grid.innerHTML = html;
+
+  // Sync status in header
+  const anyActive = surveys.some(sv => sv.syncActive);
+  const el = document.getElementById('home-sync-status');
+  if(el) { el.textContent = anyActive ? '● Sincronización activa' : '● Sin sync activo'; el.style.color = anyActive ? 'var(--green)' : 'var(--muted2)'; }
+}
+
+function enterSurvey(idx){
+  APP.currentSurveyIdx = idx;
+  const sv = getActiveSurveys()[idx];
+  // Sync current survey data into APP for all existing render functions
+  APP.cases = sv.cases || [];
+  APP.quotas = sv.quotas || {};
+  APP.n = sv.n || 2500;
+  APP.activeMuestraId = sv.muestraId;
+  APP.warnPct = sv.warnPct || 80;
+
+  // Show survey-specific nav
+  const navSec = document.getElementById('nav-encuesta-section');
+  const navLabel = document.getElementById('nav-enc-label');
+  if(navSec) navSec.style.display = 'block';
+  if(navLabel) navLabel.textContent = sv.smTitle ? sv.smTitle.substring(0,22)+(sv.smTitle.length>22?'…':'') : 'Encuesta activa';
+
+  goPanel('dashboard');
+  renderAll();
+  populateManualProvs();
+}
+
+function volverHome(){
+  APP.currentSurveyIdx = null;
+  const navSec = document.getElementById('nav-encuesta-section');
+  if(navSec) navSec.style.display = 'none';
+  goPanel('home');
+}
+
+function removeSurveyFromHome(idx){
+  const sv = (APP.activeSurveys||[])[idx];
+  if(!sv) return;
+  if(!confirm(`¿Quitar "${sv.smTitle}" del panel de inicio?`)) return;
+  APP.activeSurveys.splice(idx, 1);
+  if(APP.currentSurveyIdx === idx) APP.currentSurveyIdx = null;
+  save();
+  renderHome();
+}
+
+// Called from sync panel when user clicks "Iniciar" — adds survey to home grid
+function addSurveyToHome(smSurveyId, smTitle, muestraId, n, colMap, intervalMinutes){
+  if(!APP.activeSurveys) APP.activeSurveys = [];
+  // Check if already exists
+  const existing = APP.activeSurveys.findIndex(sv => sv.smSurveyId === smSurveyId);
+  const entry = {
+    smSurveyId, smTitle, muestraId, n: n||2500,
+    colMap, intervalMinutes: intervalMinutes||15,
+    cases: [], quotas: {}, lastSync: null, syncActive: false,
+    warnPct: APP.warnPct || 80,
+  };
+  // Compute quotas from muestra
+  const m = APP.muestras.find(x => x.id === muestraId);
+  if(m && m.distribution){
+    Object.entries(m.distribution).forEach(([k,pct])=>{ entry.quotas[k] = Math.round(pct/100*(n||2500)); });
+  }
+  if(existing >= 0) APP.activeSurveys[existing] = {...APP.activeSurveys[existing], ...entry};
+  else APP.activeSurveys.push(entry);
+  save();
+  renderHome();
+}
+
+// Firebase listener updates the matching survey in activeSurveys
+// We extend the existing onValue handler to also update home cards
+function updateSurveyFromFirebase(data){
+  if(!data || !APP.activeSurveys) return;
+  // If we're currently viewing a survey, refresh it
+  if(APP.currentSurveyIdx != null){
+    const sv = APP.activeSurveys[APP.currentSurveyIdx];
+    if(sv){
+      sv.cases = data.cases || sv.cases;
+      sv.quotas = data.quotas || sv.quotas;
+      sv.lastSync = data.lastSync || sv.lastSync;
+      sv.syncStats = data.syncStats || sv.syncStats;
+      APP.cases = sv.cases;
+      APP.quotas = sv.quotas;
+      renderAll();
+    }
+  }
+  renderHome();
+}
+
+async function syncNowAll(){
+  const url = _smServerUrl || localStorage.getItem('pulso_sync_url');
+  if(!url){ alert('Configurá el servidor en la pestaña SurveyMonkey primero.'); return; }
+  const btn = event.target; btn.textContent = '⟳ Actualizando...'; btn.disabled = true;
+  try {
+    await fetch(`${url}/sync/now`, { method: 'POST' });
+    btn.textContent = '✓ Actualizado';
+    setTimeout(()=>{ btn.textContent='⟳ Actualizar todo'; btn.disabled=false; }, 2000);
+  } catch(e){
+    btn.textContent = '✗ Error'; btn.disabled = false;
+  }
+}
+
+// ══════════════════════════════════════════
+// OVERRIDE goPanel to handle home
+// ══════════════════════════════════════════
+const _origGoPanel = goPanel;
+// redefine below after original is declared — patch nav to include home
+document.querySelectorAll('.nav-btn').forEach(b=>{
+  b.addEventListener('click', ()=>{
+    if(b.dataset.p) goPanel(b.dataset.p);
+  });
+});
+
+// ══════════════════════════════════════════
+// PATCH startSync to also add to home grid
+// ══════════════════════════════════════════
+const _origStartSync = startSync;
+async function startSync(){
+  const url = getSyncServerUrl() || _smServerUrl;
+  const surveyId = document.getElementById('sm-survey-select')?.value;
+  const surveyTitle = document.getElementById('sm-survey-select')?.options[document.getElementById('sm-survey-select').selectedIndex]?.text || surveyId;
+  const muestraId = parseInt(document.getElementById('sm-muestra-select')?.value);
+  const intervalMinutes = parseInt(document.getElementById('sm-interval')?.value) || 15;
+  const n = parseInt(document.getElementById('sm-n')?.value) || APP.n;
+
+  if(!url){ alert('Ingresá la URL del servidor.'); return; }
+  if(!surveyId){ alert('Seleccioná una encuesta.'); return; }
+  if(!muestraId){ alert('Seleccioná una muestra.'); return; }
+
+  const colMap = buildColMap();
+  if(!colMap.gen || !colMap.edad || !colMap.prov){ alert('Mapeá al menos Género, Edad y Provincia.'); return; }
+
+  const msgEl = document.getElementById('sm-sync-msg');
+  if(msgEl){ msgEl.textContent = 'Configurando...'; msgEl.style.color = 'var(--muted)'; }
+
+  try {
+    const r = await fetch(`${url}/sync/config`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ surveyId, colMap, muestraId, intervalMinutes }),
+    });
+    const data = await r.json();
+    if(data.ok){
+      if(msgEl){ msgEl.textContent = `✓ ${data.message}`; msgEl.style.color = 'var(--green)'; }
+      updateSyncStatus(true, `Cada ${intervalMinutes} min`);
+      localStorage.setItem('pulso_sync_config', JSON.stringify({ url, surveyId, muestraId, intervalMinutes }));
+      // Add to home grid
+      const cleanTitle = surveyTitle.replace(/\s*\(\d+ respuestas\)$/, '');
+      addSurveyToHome(surveyId, cleanTitle, muestraId, n, colMap, intervalMinutes);
+      if(msgEl){ msgEl.innerHTML = `✓ Encuesta agregada al panel de inicio. <a href="#" onclick="volverHome();goPanel('home')" style="color:var(--green)">Ver panel →</a>`; }
+    } else { throw new Error(data.error || 'Error desconocido'); }
+  } catch(e){
+    if(msgEl){ msgEl.textContent = `✗ Error: ${e.message}`; msgEl.style.color = 'var(--red)'; }
+  }
+}
+
+// ══════════════════════════════════════════
+// PATCH goPanel to render home when needed
+// ══════════════════════════════════════════
+function goPanel(p){
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.toggle('on', b.dataset.p===p));
+  document.querySelectorAll('.panel').forEach(el=>el.classList.remove('on'));
+  const panel = document.getElementById('p-'+p); if(panel) panel.classList.add('on');
+  if(p==='home'){ renderHome(); }
+  if(p==='provincias') renderProvincias();
+  if(p==='muestras') renderMuestras();
+  if(p==='encuestas') renderEncuestas();
+  if(p==='sync') populateSMMusetraSelect();
+}
+
+// ══════════════════════════════════════════
+// DASHBOARD SYNC BAR
+// ══════════════════════════════════════════
+function getDashSyncUrl(){ return _smServerUrl || localStorage.getItem('pulso_sync_url') || ''; }
+
+function updateDashSyncBar(){
+  const sv = getCurrentSurvey();
+  const dot = document.getElementById('dsb-dot');
+  const label = document.getElementById('dsb-label');
+  const meta = document.getElementById('dsb-meta');
+  const startBtn = document.getElementById('dsb-start-btn');
+  const stopBtn = document.getElementById('dsb-stop-btn');
+  const intervalInp = document.getElementById('dsb-interval');
+
+  if(!sv){
+    if(dot) { dot.className='sync-bar-dot off'; }
+    if(label) label.textContent = 'Sin encuesta activa';
+    if(meta) meta.textContent = 'Volvé al inicio y seleccioná una encuesta';
+    return;
+  }
+
+  const active = sv.syncActive || false;
+  const lastSync = sv.lastSync ? new Date(sv.lastSync).toLocaleString('es-AR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : 'Nunca';
+  const stats = sv.syncStats;
+
+  if(dot) dot.className = 'sync-bar-dot ' + (active ? 'on' : 'off');
+  if(label) label.textContent = active ? `Sincronizando cada ${sv.intervalMinutes||15} min — ${sv.smTitle||''}` : `Sync detenido — ${sv.smTitle||''}`;
+  if(meta) meta.textContent = `Último sync: ${lastSync}` + (stats ? ` · ${stats.valid} válidos · ${stats.excluded} excluidos` : '');
+  if(intervalInp && !active) intervalInp.value = sv.intervalMinutes || 15;
+  if(startBtn) startBtn.style.display = active ? 'none' : '';
+  if(stopBtn) stopBtn.style.display = active ? '' : 'none';
+}
+
+async function dashSyncStart(){
+  const url = getDashSyncUrl();
+  const sv = getCurrentSurvey();
+  if(!url){ alert('Configurá la URL del servidor en la pestaña SurveyMonkey primero.'); goPanel('sync'); return; }
+  if(!sv){ alert('Seleccioná una encuesta desde el inicio.'); return; }
+  if(!sv.colMap || !sv.colMap.gen){ alert('Completá el mapeo de preguntas en la pestaña SurveyMonkey primero.'); goPanel('sync'); return; }
+
+  const intervalMinutes = parseInt(document.getElementById('dsb-interval')?.value) || 15;
+  if(intervalMinutes < 5){ alert('El mínimo es 5 minutos (límite de la API de SurveyMonkey).'); return; }
+
+  const label = document.getElementById('dsb-label');
+  if(label){ label.textContent = 'Iniciando...'; }
+
+  try {
+    const r = await fetch(`${url}/sync/config`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        surveyId: sv.smSurveyId,
+        colMap: sv.colMap,
+        muestraId: sv.muestraId,
+        intervalMinutes,
+      }),
+    });
+    const data = await r.json();
+    if(data.ok){
+      // Update survey entry
+      const idx = APP.currentSurveyIdx;
+      if(idx != null && APP.activeSurveys[idx]){
+        APP.activeSurveys[idx].syncActive = true;
+        APP.activeSurveys[idx].intervalMinutes = intervalMinutes;
+      }
+      save();
+      updateDashSyncBar();
+      renderHome();
+    } else { throw new Error(data.error); }
+  } catch(e){
+    alert('Error al iniciar sync: ' + e.message);
+    updateDashSyncBar();
+  }
+}
+
+async function dashSyncStop(){
+  const url = getDashSyncUrl();
+  if(!url){ return; }
+  try {
+    await fetch(`${url}/sync/stop`, { method: 'DELETE' });
+    const idx = APP.currentSurveyIdx;
+    if(idx != null && APP.activeSurveys[idx]){
+      APP.activeSurveys[idx].syncActive = false;
+    }
+    save();
+    updateDashSyncBar();
+    renderHome();
+  } catch(e){ alert('Error: ' + e.message); }
+}
+
+async function dashSyncNow(){
+  const url = getDashSyncUrl();
+  const btn = document.querySelector('[onclick="dashSyncNow()"]');
+  if(!url){ alert('Configurá el servidor primero.'); return; }
+  if(btn){ btn.textContent='⟳'; btn.disabled=true; }
+  try {
+    await fetch(`${url}/sync/now`, { method: 'POST' });
+    if(btn){ btn.textContent='✓'; setTimeout(()=>{ btn.textContent='⟳'; btn.disabled=false; }, 1500); }
+  } catch(e){
+    if(btn){ btn.textContent='✗'; btn.disabled=false; }
+  }
+}
+
+// Patch renderDash to also update sync bar
+const _origRenderDash = renderDash;
+function renderDash(){
+  _origRenderDash();
+  updateDashSyncBar();
+}
+
+// ══════════════════════════════════════════
 // INIT
 // ══════════════════════════════════════════
 load();
-renderAll();
+if(!APP.activeSurveys) APP.activeSurveys = [];
+if(!APP.surveys) APP.surveys = [];
+renderHome();
 renderMuestras();
 renderEncuestas();
 renderCostWidget();
 updateCargarMuestraInfo();
 populateManualProvs();
-if(!APP.surveys)APP.surveys=[];
+// restore server url
+(function(){
+  const saved = localStorage.getItem('pulso_sync_url');
+  if(saved){ const el=document.getElementById('sm-server-url'); if(el) el.value=saved; _smServerUrl=saved; }
+})();
 </script>
 </body>
 </html>
