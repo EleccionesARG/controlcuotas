@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -11,10 +10,15 @@
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
   import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
   const firebaseConfig = {
-    apiKey: "PASTE_API_KEY", authDomain: "PASTE_AUTH_DOMAIN",
-    databaseURL: "PASTE_DATABASE_URL", projectId: "PASTE_PROJECT_ID",
-    storageBucket: "PASTE_STORAGE_BUCKET", messagingSenderId: "PASTE_SENDER_ID", appId: "PASTE_APP_ID"
-  };
+  apiKey: "AIzaSyBIiw9xRGrTWrSohBmn5YJFMPV_KCWLPa0",
+  authDomain: "control-cuotas-pulso.firebaseapp.com",
+  databaseURL: "https://control-cuotas-pulso-default-rtdb.firebaseio.com",
+  projectId: "control-cuotas-pulso",
+  storageBucket: "control-cuotas-pulso.firebasestorage.app",
+  messagingSenderId: "55044827232",
+  appId: "1:55044827232:web:3b152771247e59cec3fb05",
+  measurementId: "G-VQES40QZ74"
+};
   if (firebaseConfig.apiKey !== "PASTE_API_KEY") {
     try {
       const app = initializeApp(firebaseConfig);
