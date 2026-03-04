@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -29,7 +30,14 @@
       onValue(window._fbRef, (snap) => {
         const data = snap.val();
         if (!data || window._suppressRemote) return;
-        try { Object.assign(APP, JSON.parse(data)); renderAll(); showSync('sync','● En vivo'); } catch(e){}
+        try {
+        const parsed = JSON.parse(data);
+        // Update non-case fields in APP
+        const {rawCases, cases, ...rest} = parsed;
+        Object.assign(APP, rest);
+        updateSurveyFromFirebase(parsed);
+        showSync('sync','● En vivo');
+      } catch(e){ console.warn('Firebase parse error:', e); }
       });
       showSync('ok','● Conectado');
     } catch(e){ showSync('err','● Error Firebase'); }
@@ -2506,22 +2514,53 @@ function addSurveyToHome(smSurveyId, smTitle, muestraId, n, colMap, intervalMinu
   renderHome();
 }
 
+// ── processRawCases: assign estrato + ageGrp using muestra refTable ──
+function processRawCases(rawCases, muestra){
+  if(!muestra || !rawCases) return [];
+  const bounds = muestra.ageBounds || parseAgeBounds(muestra.ageGroups || []);
+  const groups = muestra.ageGroups || [];
+  let nextId = 1;
+
+  return rawCases.map(raw => {
+    const estrato = lookupEst(raw.prov, raw.depto, muestra) || '?';
+    const ageGrp = getAgeGrp(raw.edad, bounds, groups);
+    const key = ck(raw.gen, ageGrp, estrato);
+    return { ...raw, estrato, ageGrp, key, id: raw.id || `R${String(nextId++).padStart(4,'0')}` };
+  });
+}
+
 // Firebase listener updates the matching survey in activeSurveys
-// We extend the existing onValue handler to also update home cards
 function updateSurveyFromFirebase(data){
   if(!data || !APP.activeSurveys) return;
-  // If we're currently viewing a survey, refresh it
   if(APP.currentSurveyIdx != null){
     const sv = APP.activeSurveys[APP.currentSurveyIdx];
     if(sv){
-      sv.cases = data.cases || sv.cases;
-      sv.quotas = data.quotas || sv.quotas;
+      // Process raw cases with muestra refTable if available
+      if(data.rawCases){
+        const muestra = APP.muestras.find(m => m.id === sv.muestraId);
+        sv.cases = processRawCases(data.rawCases, muestra);
+      } else if(data.cases){
+        sv.cases = data.cases;
+      }
       sv.lastSync = data.lastSync || sv.lastSync;
       sv.syncStats = data.syncStats || sv.syncStats;
       APP.cases = sv.cases;
       APP.quotas = sv.quotas;
       renderAll();
     }
+  }
+  // Also update home cards for any survey
+  if(data.rawCases || data.cases){
+    // Update lastSync on all active surveys (server syncs one at a time)
+    APP.activeSurveys.forEach(sv => {
+      if(data.lastSync) sv.lastSync = data.lastSync;
+      if(data.syncStats) sv.syncStats = data.syncStats;
+      if(data.rawCases){
+        const muestra = APP.muestras.find(m => m.id === sv.muestraId);
+        if(muestra) sv.cases = processRawCases(data.rawCases, muestra);
+      }
+    });
+    save();
   }
   renderHome();
 }
