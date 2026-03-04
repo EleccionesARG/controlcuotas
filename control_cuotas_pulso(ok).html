@@ -20,6 +20,7 @@
   appId: "1:55044827232:web:3b152771247e59cec3fb05",
   measurementId: "G-VQES40QZ74"
 };
+
   if (firebaseConfig.apiKey !== "PASTE_API_KEY") {
     try {
       const app = initializeApp(firebaseConfig);
@@ -35,6 +36,12 @@
         // Update non-case fields in APP
         const {rawCases, cases, ...rest} = parsed;
         Object.assign(APP, rest);
+        // Restore server URL for this device if not set
+        if(APP.syncServerUrl && !_smServerUrl){
+          _smServerUrl = APP.syncServerUrl;
+          const el = document.getElementById('sm-server-url');
+          if(el && !el.value) el.value = APP.syncServerUrl;
+        }
         updateSurveyFromFirebase(parsed);
         showSync('sync','● En vivo');
       } catch(e){ console.warn('Firebase parse error:', e); }
@@ -362,6 +369,8 @@ table.dtbl{width:100%;border-collapse:collapse}
     <div class="nav-sep" id="nav-enc-label">Encuesta activa</div>
     <button class="nav-btn" data-p="dashboard"><span class="nav-icon">▦</span>Dashboard</button>
     <button class="nav-btn" data-p="provincias"><span class="nav-icon">⊛</span>Provincias</button>
+    <button class="nav-btn" data-p="estrato4"><span class="nav-icon">④</span>Estrato 4</button>
+    <button class="nav-btn" data-p="estrato4"><span class="nav-icon">★</span>Estrato 4</button>
     <button class="nav-btn" data-p="casos"><span class="nav-icon">⊞</span>Casos</button>
     <button class="nav-btn" style="color:var(--muted);font-size:11px" onclick="volverHome()"><span class="nav-icon">←</span>Volver</button>
   </div>
@@ -544,6 +553,24 @@ table.dtbl{width:100%;border-collapse:collapse}
       </div>
     </div>
   </div>
+</div>
+
+<!-- ══ ESTRATO 4 ══ -->
+<div id="p-estrato4" class="panel">
+  <div class="pg-head">
+    <div>
+      <div class="pg-title">Estrato 4</div>
+      <div class="pg-sub">Casos del estrato 4 por provincia y departamento</div>
+    </div>
+    <div class="btn-row">
+      <select id="e4-estrato-sel" onchange="renderEstrato4()" style="background:var(--s2);border:1px solid var(--b2);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:12px;padding:7px 10px;outline:none">
+        <option value="4">Estrato 4</option>
+      </select>
+      <input id="e4-search" placeholder="Buscar provincia..." oninput="renderEstrato4()" style="background:var(--s2);border:1px solid var(--b2);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:12px;padding:7px 10px;outline:none;width:160px">
+    </div>
+  </div>
+  <div id="e4-kpis" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px"></div>
+  <div id="e4-content"></div>
 </div>
 
 <!-- ══ PROVINCIAS ══ -->
@@ -756,6 +783,27 @@ table.dtbl{width:100%;border-collapse:collapse}
     <div class="card-hd">Último sincronismo</div>
     <div id="sm-last-sync-info" style="font-family:var(--mono);font-size:12px;line-height:2;color:var(--muted)"></div>
   </div>
+</div>
+
+<!-- ══ ESTRATO 4 ══ -->
+<div id="p-estrato4" class="panel">
+  <div class="pg-head">
+    <div>
+      <div class="pg-title">Estrato 4</div>
+      <div class="pg-sub" id="e4-sub">Casos en estrato 4 por provincia y departamento</div>
+    </div>
+    <div class="btn-row">
+      <input id="e4-search" placeholder="Buscar provincia o depto..." oninput="renderEstrato4()"
+        style="background:var(--s2);border:1px solid var(--b2);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:12px;padding:7px 10px;outline:none;width:220px">
+      <select id="e4-sort" onchange="renderEstrato4()"
+        style="background:var(--s2);border:1px solid var(--b2);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:12px;padding:7px 10px;outline:none">
+        <option value="casos">Mayor a menor</option>
+        <option value="alfa">Alfabético</option>
+      </select>
+    </div>
+  </div>
+  <div id="e4-kpis" style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px"></div>
+  <div id="e4-table-wrap"></div>
 </div>
 
 </div><!-- /main -->
@@ -1771,19 +1819,33 @@ function renderQuotaGrid(cells, m){
     </div>`;
   };
 
-  // rows = estratos, cols = age groups
+  // rows = estratos (sorted: incomplete first, then complete), cols = age groups
   let html='';
   generos.forEach(g=>{
     const gColor=g==='Masculino'?'var(--blue)':'var(--purple)';
 
+    // Sort estratos: incomplete first (by % ascending), then complete, all sorted by estrato name
+    const sortedEstratos = [...estratos].sort((a,b)=>{
+      const totA=ages.reduce((s,ag)=>{const c=cellMap[ck(g,ag,a)];return s+(c?c.cur:0);},0);
+      const tgtA=ages.reduce((s,ag)=>{const c=cellMap[ck(g,ag,a)];return s+(c?c.tgt:0);},0);
+      const totB=ages.reduce((s,ag)=>{const c=cellMap[ck(g,ag,b)];return s+(c?c.cur:0);},0);
+      const tgtB=ages.reduce((s,ag)=>{const c=cellMap[ck(g,ag,b)];return s+(c?c.tgt:0);},0);
+      const pctA=tgtA>0?totA/tgtA:0, pctB=tgtB>0?totB/tgtB:0;
+      const doneA=pctA>=1, doneB=pctB>=1;
+      // completed go last
+      if(doneA!==doneB) return doneA?1:-1;
+      // within same group, sort by estrato name
+      return a.localeCompare(b,'es',{numeric:true});
+    });
+
     // row totals (per estrato), col totals (per age group)
-    const rowTotals=estratos.map(e=>({
+    const rowTotals=sortedEstratos.map(e=>({
       cur:ages.reduce((s,ag)=>{const c=cellMap[ck(g,ag,e)];return s+(c?c.cur:0);},0),
       tgt:ages.reduce((s,ag)=>{const c=cellMap[ck(g,ag,e)];return s+(c?c.tgt:0);},0)
     }));
     const colTotals=ages.map(ag=>({
-      cur:estratos.reduce((s,e)=>{const c=cellMap[ck(g,ag,e)];return s+(c?c.cur:0);},0),
-      tgt:estratos.reduce((s,e)=>{const c=cellMap[ck(g,ag,e)];return s+(c?c.tgt:0);},0)
+      cur:sortedEstratos.reduce((s,e)=>{const c=cellMap[ck(g,ag,e)];return s+(c?c.cur:0);},0),
+      tgt:sortedEstratos.reduce((s,e)=>{const c=cellMap[ck(g,ag,e)];return s+(c?c.tgt:0);},0)
     }));
     const gTotal={cur:rowTotals.reduce((s,r)=>s+r.cur,0),tgt:rowTotals.reduce((s,r)=>s+r.tgt,0)};
 
@@ -1799,11 +1861,13 @@ function renderQuotaGrid(cells, m){
           <th style="color:var(--green)">Total</th>
         </tr></thead>
         <tbody>
-          ${estratos.map((e,ri)=>`<tr>
-            <td class="td-label">Estrato ${e}</td>
+          ${sortedEstratos.map((e,ri)=>{
+            const done=rowTotals[ri].tgt>0&&rowTotals[ri].cur>=rowTotals[ri].tgt;
+            return`<tr style="${done?'opacity:.55':''}">
+            <td class="td-label">${done?'✓ ':''} Estrato ${e}</td>
             ${ages.map(ag=>{const c=cellMap[ck(g,ag,e)]||{cur:0,tgt:APP.quotas[ck(g,ag,e)]||0};return`<td>${cellHtml(c.cur,c.tgt,_compact)}</td>`;}).join('')}
             <td class="td-total">${cellHtml(rowTotals[ri].cur,rowTotals[ri].tgt,_compact)}</td>
-          </tr>`).join('')}
+          </tr>`;}).join('')}
         </tbody>
         <tfoot><tr>
           <td class="td-label" style="font-size:10px;font-weight:700;text-transform:uppercase;color:var(--muted);letter-spacing:.08em">Total</td>
@@ -2123,7 +2187,7 @@ function doReset(){
 // SURVEYMONKEY SYNC
 // ══════════════════════════════════════════
 let _smQuestions = []; // cached question list for selected survey
-let _smServerUrl = '';
+let _smServerUrl = 'https://pulso-sync-production.up.railway.app';
 
 function getSyncServerUrl() {
   return (document.getElementById('sm-server-url')?.value || '').trim().replace(/\/$/, '');
@@ -2362,9 +2426,11 @@ function updateSyncStatus(active, label) {
   if (lbl) lbl.textContent = label || (active ? 'Activo' : 'Inactivo');
 }
 
-// Restore saved server URL on load
+// Restore saved server URL — from APP state (shared via Firebase) or localStorage fallback
 (function() {
-  const saved = localStorage.getItem('pulso_sync_url');
+  const fromApp = APP.syncServerUrl;
+  const fromLocal = localStorage.getItem('pulso_sync_url');
+  const saved = fromApp || fromLocal;
   if (saved) {
     const el = document.getElementById('sm-server-url');
     if (el) el.value = saved;
@@ -2622,6 +2688,10 @@ async function startSync(){
       if(msgEl){ msgEl.textContent = `✓ ${data.message}`; msgEl.style.color = 'var(--green)'; }
       updateSyncStatus(true, `Cada ${intervalMinutes} min`);
       localStorage.setItem('pulso_sync_config', JSON.stringify({ url, surveyId, muestraId, intervalMinutes }));
+      // Save server URL globally so all devices get it
+      APP.syncServerUrl = url;
+      _smServerUrl = url;
+      save();
       // Add to home grid
       const cleanTitle = surveyTitle.replace(/\s*\(\d+ respuestas\)$/, '');
       addSurveyToHome(surveyId, cleanTitle, muestraId, n, colMap, intervalMinutes);
@@ -2641,9 +2711,118 @@ function goPanel(p){
   const panel = document.getElementById('p-'+p); if(panel) panel.classList.add('on');
   if(p==='home'){ renderHome(); }
   if(p==='provincias') renderProvincias();
+  if(p==='estrato4') renderEstrato4();
   if(p==='muestras') renderMuestras();
   if(p==='encuestas') renderEncuestas();
   if(p==='sync') populateSMMusetraSelect();
+}
+
+// ══════════════════════════════════════════
+// ESTRATO 4
+// ══════════════════════════════════════════
+function renderEstrato4(){
+  const wrap = document.getElementById('e4-table-wrap'); if(!wrap) return;
+  const cases = (typeof getCases==='function') ? getCases() : (APP.cases||[]);
+  const search = (document.getElementById('e4-search')?.value||'').toLowerCase();
+  const sortBy = document.getElementById('e4-sort')?.value || 'casos';
+
+  const e4cases = cases.filter(c => String(c.estrato) === '4');
+
+  const subEl = document.getElementById('e4-sub');
+  if(subEl) subEl.textContent = `${e4cases.length} casos en estrato 4`;
+
+  const byProv = {};
+  e4cases.forEach(c => {
+    const prov = c.prov || '(sin provincia)';
+    const depto = c.depto || '(sin depto)';
+    if(!byProv[prov]) byProv[prov] = {};
+    if(!byProv[prov][depto]) byProv[prov][depto] = { masc:0, fem:0, total:0 };
+    byProv[prov][depto].total++;
+    if(c.gen==='Masculino') byProv[prov][depto].masc++;
+    else if(c.gen==='Femenino') byProv[prov][depto].fem++;
+  });
+
+  const kpiEl = document.getElementById('e4-kpis');
+  if(kpiEl){
+    const provCount = Object.keys(byProv).length;
+    const deptoCount = Object.values(byProv).reduce((s,d)=>s+Object.keys(d).length,0);
+    const masc = e4cases.filter(c=>c.gen==='Masculino').length;
+    const fem = e4cases.filter(c=>c.gen==='Femenino').length;
+    kpiEl.innerHTML = [
+      ['Total casos', e4cases.length, 'var(--green)'],
+      ['Provincias', provCount, 'var(--blue)'],
+      ['Departamentos', deptoCount, 'var(--purple)'],
+      ['Masculino', masc, 'var(--blue)'],
+      ['Femenino', fem, 'var(--purple)'],
+    ].map(([l,v,c])=>`<div style="background:var(--s2);border:1px solid var(--border);border-radius:10px;padding:12px 16px;min-width:120px">
+      <div style="font-family:var(--mono);font-size:22px;font-weight:700;color:${c}">${v}</div>
+      <div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-top:3px">${l}</div>
+    </div>`).join('');
+  }
+
+  if(!e4cases.length){
+    wrap.innerHTML=`<div style="text-align:center;padding:40px;color:var(--muted)">No hay casos en estrato 4 todavía</div>`;
+    return;
+  }
+
+  let provEntries = Object.entries(byProv);
+  if(search) provEntries = provEntries.filter(([p,d])=>
+    p.toLowerCase().includes(search) || Object.keys(d).some(dep=>dep.toLowerCase().includes(search))
+  );
+  if(sortBy==='casos') provEntries.sort((a,b)=>Object.values(b[1]).reduce((s,x)=>s+x.total,0)-Object.values(a[1]).reduce((s,x)=>s+x.total,0));
+  else provEntries.sort((a,b)=>a[0].localeCompare(b[0],'es'));
+
+  let html = '';
+  provEntries.forEach(([prov, deptos]) => {
+    const provTotal = Object.values(deptos).reduce((s,x)=>s+x.total,0);
+    const provMasc = Object.values(deptos).reduce((s,x)=>s+x.masc,0);
+    const provFem = Object.values(deptos).reduce((s,x)=>s+x.fem,0);
+    let deptoEntries = Object.entries(deptos);
+    if(sortBy==='casos') deptoEntries.sort((a,b)=>b[1].total-a[1].total);
+    else deptoEntries.sort((a,b)=>a[0].localeCompare(b[0],'es'));
+    if(search && !prov.toLowerCase().includes(search)){
+      deptoEntries = deptoEntries.filter(([d])=>d.toLowerCase().includes(search));
+    }
+    html += `<div style="margin-bottom:14px;background:var(--s1);border:1px solid var(--border);border-radius:12px;overflow:hidden">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;background:var(--s2);border-bottom:1px solid var(--border)">
+        <div style="font-weight:700;font-size:14px">${prov}</div>
+        <div style="font-family:var(--mono);font-size:12px;color:var(--muted)">
+          <span style="color:var(--green);font-weight:700">${provTotal}</span> casos ·
+          <span style="color:var(--blue)">${provMasc} M</span> ·
+          <span style="color:var(--purple)">${provFem} F</span>
+        </div>
+      </div>
+      <table style="width:100%;border-collapse:collapse">
+        <thead><tr>
+          <th style="text-align:left;padding:8px 16px;font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border)">Departamento</th>
+          <th style="text-align:center;padding:8px 12px;font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border)">Total</th>
+          <th style="text-align:center;padding:8px 12px;font-size:10px;font-weight:700;text-transform:uppercase;color:var(--blue);border-bottom:1px solid var(--border)">Masc.</th>
+          <th style="text-align:center;padding:8px 12px;font-size:10px;font-weight:700;text-transform:uppercase;color:var(--purple);border-bottom:1px solid var(--border)">Fem.</th>
+          <th style="text-align:left;padding:8px 16px;font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border)">Dist. en provincia</th>
+        </tr></thead>
+        <tbody>
+          ${deptoEntries.map(([depto,d],i)=>{
+            const pct = provTotal > 0 ? Math.round(d.total/provTotal*100) : 0;
+            return`<tr style="border-bottom:1px solid var(--border);${i%2===1?'background:rgba(255,255,255,.015)':''}">
+              <td style="padding:9px 16px;font-size:13px">${depto}</td>
+              <td style="padding:9px 12px;text-align:center;font-family:var(--mono);font-weight:700;color:var(--green)">${d.total}</td>
+              <td style="padding:9px 12px;text-align:center;font-family:var(--mono);color:var(--blue)">${d.masc}</td>
+              <td style="padding:9px 12px;text-align:center;font-family:var(--mono);color:var(--purple)">${d.fem}</td>
+              <td style="padding:9px 16px">
+                <div style="display:flex;align-items:center;gap:8px">
+                  <div style="flex:1;background:var(--s3);border-radius:3px;height:5px;overflow:hidden;min-width:80px">
+                    <div style="height:100%;border-radius:3px;background:var(--green);width:${pct}%"></div>
+                  </div>
+                  <span style="font-family:var(--mono);font-size:11px;color:var(--muted);width:32px;text-align:right">${pct}%</span>
+                </div>
+              </td>
+            </tr>`;
+          }).join('')}
+        </tbody>
+      </table>
+    </div>`;
+  });
+  wrap.innerHTML = html;
 }
 
 // ══════════════════════════════════════════
@@ -2752,6 +2931,102 @@ async function dashSyncNow(){
 // sync bar updated directly in renderAll
 
 // ══════════════════════════════════════════
+// ESTRATO 4 PANEL
+// ══════════════════════════════════════════
+function renderEstrato4(){
+  const content = document.getElementById('e4-content');
+  const kpisEl = document.getElementById('e4-kpis');
+  const selEl = document.getElementById('e4-estrato-sel');
+  const searchEl = document.getElementById('e4-search');
+  if(!content) return;
+
+  const cases = getCases();
+  const m = getCurrentMuestra();
+
+  // Populate estrato selector dynamically
+  if(selEl && m){
+    const cur = selEl.value;
+    selEl.innerHTML = m.estratos.map(e=>`<option value="${e}" ${e===cur?'selected':''}>Estrato ${e}</option>`).join('');
+  }
+
+  const targetEstrato = selEl ? selEl.value : '4';
+  const search = (searchEl ? searchEl.value : '').toLowerCase();
+
+  const e4cases = cases.filter(c => c.estrato === targetEstrato);
+  const total = e4cases.length;
+  const tgt = Object.entries(getCases().length ? getQuotas() : {})
+    .filter(([k]) => cParts(k)[2] === targetEstrato)
+    .reduce((s,[,v])=>s+v, 0);
+
+  // KPIs
+  if(kpisEl){
+    kpisEl.innerHTML = `
+      <div class="kpi hi"><div class="kv">${total.toLocaleString('es-AR')}</div><div class="kl">Casos Estrato ${targetEstrato}</div></div>
+      <div class="kpi"><div class="kv" style="color:var(--amber)">${tgt>0?Math.round(total/tgt*100)+'%':'—'}</div><div class="kl">Avance</div></div>
+      <div class="kpi"><div class="kv" style="color:var(--purple)">${e4cases.filter(c=>parseInt(c.edad)<=29).length.toLocaleString('es-AR')}</div><div class="kl">Jóvenes ≤29</div></div>`;
+  }
+
+  if(!total){
+    content.innerHTML = `<div class="empty-state"><div class="empty-icon">★</div><div class="empty-sub">No hay casos del Estrato ${targetEstrato} cargados.</div></div>`;
+    return;
+  }
+
+  // Group by provincia → departamento
+  const byProv = {};
+  e4cases.forEach(c => {
+    const prov = c.prov || 'Sin provincia';
+    const depto = c.depto || 'Sin departamento';
+    if(!byProv[prov]) byProv[prov] = {};
+    if(!byProv[prov][depto]) byProv[prov][depto] = {total:0, masc:0, fem:0, jovenes:0};
+    byProv[prov][depto].total++;
+    if(norm(c.gen).includes('masc')) byProv[prov][depto].masc++;
+    else byProv[prov][depto].fem++;
+    if(parseInt(c.edad)<=29) byProv[prov][depto].jovenes++;
+  });
+
+  // Sort provs by case count desc
+  let provList = Object.entries(byProv).sort((a,b)=>{
+    const ta = Object.values(a[1]).reduce((s,d)=>s+d.total,0);
+    const tb = Object.values(b[1]).reduce((s,d)=>s+d.total,0);
+    return tb-ta;
+  });
+
+  if(search) provList = provList.filter(([p])=>p.toLowerCase().includes(search));
+
+  let html = '';
+  provList.forEach(([prov, deptos]) => {
+    const provTotal = Object.values(deptos).reduce((s,d)=>s+d.total,0);
+    const deptoList = Object.entries(deptos).sort((a,b)=>b[1].total-a[1].total);
+    html += `<div class="card" style="margin-bottom:12px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+        <div style="font-size:15px;font-weight:700">${prov}</div>
+        <div style="font-family:var(--mono);font-size:13px;font-weight:700;color:var(--green)">${provTotal} casos</div>
+      </div>
+      <table style="width:100%;border-collapse:collapse;font-size:12px">
+        <thead><tr>
+          <th style="background:var(--s2);padding:7px 10px;text-align:left;font-size:9.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border)">Departamento</th>
+          <th style="background:var(--s2);padding:7px 10px;text-align:center;font-size:9.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--blue);border-bottom:1px solid var(--border)">Masc.</th>
+          <th style="background:var(--s2);padding:7px 10px;text-align:center;font-size:9.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--purple);border-bottom:1px solid var(--border)">Fem.</th>
+          <th style="background:var(--s2);padding:7px 10px;text-align:center;font-size:9.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border)">Jóvenes</th>
+          <th style="background:var(--s2);padding:7px 10px;text-align:center;font-size:9.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--green);border-bottom:1px solid var(--border)">Total</th>
+        </tr></thead>
+        <tbody>
+        ${deptoList.map(([depto,d])=>`<tr style="border-bottom:1px solid var(--border)">
+          <td style="padding:8px 10px;font-weight:500">${depto}</td>
+          <td style="padding:8px 10px;text-align:center;font-family:var(--mono);color:var(--blue)">${d.masc||'—'}</td>
+          <td style="padding:8px 10px;text-align:center;font-family:var(--mono);color:var(--purple)">${d.fem||'—'}</td>
+          <td style="padding:8px 10px;text-align:center;font-family:var(--mono);color:var(--muted)">${d.jovenes||'—'}</td>
+          <td style="padding:8px 10px;text-align:center;font-family:var(--mono);font-weight:700;color:var(--green)">${d.total}</td>
+        </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>`;
+  });
+
+  content.innerHTML = html || `<div class="empty-state"><div class="empty-sub">Sin resultados para "${search}"</div></div>`;
+}
+
+// ══════════════════════════════════════════
 // INIT
 // ══════════════════════════════════════════
 load();
@@ -2763,10 +3038,10 @@ renderEncuestas();
 renderCostWidget();
 updateCargarMuestraInfo();
 populateManualProvs();
-// restore server url
+// pre-fill server url field
 (function(){
-  const saved = localStorage.getItem('pulso_sync_url');
-  if(saved){ const el=document.getElementById('sm-server-url'); if(el) el.value=saved; _smServerUrl=saved; }
+  const el=document.getElementById('sm-server-url');
+  if(el) el.value=_smServerUrl;
 })();
 </script>
 </body>
