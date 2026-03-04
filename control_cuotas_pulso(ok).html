@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -11,15 +10,10 @@
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
   import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
   const firebaseConfig = {
-  apiKey: "AIzaSyBIiw9xRGrTWrSohBmn5YJFMPV_KCWLPa0",
-  authDomain: "control-cuotas-pulso.firebaseapp.com",
-  databaseURL: "https://control-cuotas-pulso-default-rtdb.firebaseio.com",
-  projectId: "control-cuotas-pulso",
-  storageBucket: "control-cuotas-pulso.firebasestorage.app",
-  messagingSenderId: "55044827232",
-  appId: "1:55044827232:web:3b152771247e59cec3fb05",
-  measurementId: "G-VQES40QZ74"
-};
+    apiKey: "PASTE_API_KEY", authDomain: "PASTE_AUTH_DOMAIN",
+    databaseURL: "PASTE_DATABASE_URL", projectId: "PASTE_PROJECT_ID",
+    storageBucket: "PASTE_STORAGE_BUCKET", messagingSenderId: "PASTE_SENDER_ID", appId: "PASTE_APP_ID"
+  };
   if (firebaseConfig.apiKey !== "PASTE_API_KEY") {
     try {
       const app = initializeApp(firebaseConfig);
@@ -128,37 +122,49 @@ body{background:var(--bg);color:var(--text);font-family:var(--sans);min-height:1
 /* quota table - full view */
 .qtbl-wrap{overflow-x:auto;border-radius:10px;border:1px solid var(--border)}
 .qtbl{width:100%;border-collapse:collapse;min-width:600px}
-.qtbl thead th{background:var(--s2);font-size:9.5px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);padding:10px 12px;text-align:center;border-bottom:1px solid var(--border);border-right:1px solid var(--border);white-space:nowrap}
+.qtbl thead th{background:var(--s2);font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);padding:11px 14px;text-align:center;border-bottom:1px solid var(--border);border-right:1px solid var(--border);white-space:nowrap}
 .qtbl thead th.th-label{text-align:left;min-width:140px;position:sticky;left:0;z-index:2;background:var(--s2)}
 .qtbl thead th.th-gen{font-size:11px;font-weight:700}
 .qtbl tbody tr{border-bottom:1px solid var(--border);transition:background .1s}
 .qtbl tbody tr:last-child{border-bottom:none}
 .qtbl tbody tr:hover{background:rgba(255,255,255,.02)}
 .qtbl tbody td{border-right:1px solid var(--border);padding:0;vertical-align:middle}
-.qtbl tbody td.td-label{padding:10px 14px;font-size:12px;font-weight:600;color:var(--text);background:var(--s1);position:sticky;left:0;z-index:1;white-space:nowrap}
+.qtbl tbody td.td-label{padding:12px 16px;font-size:13px;font-weight:700;color:var(--text);background:var(--s1);position:sticky;left:0;z-index:1;white-space:nowrap;min-width:130px}
 .qtbl tbody tr:hover td.td-label{background:var(--s2)}
 .qtbl tbody td.td-sep{background:var(--s2);padding:6px 14px;font-size:9px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--muted2)}
 
 /* quota cell */
-.qcell-wrap{padding:8px 10px;min-width:90px}
-.qcell-nums{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:5px}
-.qcell-cur{font-family:var(--mono);font-size:14px;font-weight:600}
-.qcell-tgt{font-family:var(--mono);font-size:10px;color:var(--muted)}
-.qcell-bar-track{background:var(--s3);border-radius:3px;height:4px;overflow:hidden;margin-bottom:3px}
-.qcell-bar-fill{height:100%;border-radius:3px;transition:width .5s ease}
-.qcell-pct{font-family:var(--mono);font-size:9px;color:var(--muted);text-align:right}
+.qcell-wrap{padding:12px 14px;min-width:110px}
+.qcell-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px}
+.qcell-cur{font-family:var(--mono);font-size:26px;font-weight:700;line-height:1}
+.qcell-pct-badge{font-family:var(--mono);font-size:12px;font-weight:700;padding:3px 7px;border-radius:5px;align-self:flex-start;margin-top:2px}
+.qcell-tgt{font-family:var(--mono);font-size:11px;color:var(--muted);margin-bottom:6px}
+.qcell-bar-track{background:var(--s3);border-radius:4px;height:6px;overflow:hidden}
+.qcell-bar-fill{height:100%;border-radius:4px;transition:width .6s cubic-bezier(.4,0,.2,1)}
 
 /* cell status colors */
 .cs-empty .qcell-cur{color:var(--muted2)}
+.cs-empty .qcell-pct-badge{background:var(--s3);color:var(--muted2)}
 .cs-empty .qcell-bar-fill{background:var(--s4);width:0%}
-.cs-ok .qcell-cur{color:#5bdb8a}.cs-ok .qcell-bar-fill{background:var(--green)}
-.cs-warn .qcell-cur{color:var(--amber)}.cs-warn .qcell-bar-fill{background:var(--amber)}
-.cs-full .qcell-cur{color:var(--red)}.cs-full .qcell-bar-fill{background:var(--red)}
-.cs-full .qcell-wrap{background:rgba(224,90,90,.05)}
+
+.cs-ok .qcell-cur{color:#5bdb8a}
+.cs-ok .qcell-pct-badge{background:rgba(62,207,142,.15);color:var(--green)}
+.cs-ok .qcell-bar-fill{background:var(--green)}
+
+.cs-warn .qcell-cur{color:var(--amber)}
+.cs-warn .qcell-pct-badge{background:rgba(240,166,46,.15);color:var(--amber)}
+.cs-warn .qcell-bar-fill{background:var(--amber)}
+.cs-warn .qcell-wrap{background:rgba(240,166,46,.03)}
+
+.cs-full .qcell-cur{color:var(--red)}
+.cs-full .qcell-pct-badge{background:rgba(224,90,90,.18);color:var(--red)}
+.cs-full .qcell-bar-fill{background:var(--red)}
+.cs-full .qcell-wrap{background:rgba(224,90,90,.06)}
 
 /* total column */
 .td-total .qcell-wrap{background:rgba(62,207,142,.04)}
 .td-total .qcell-cur{color:var(--green)}
+.td-total .qcell-pct-badge{background:rgba(62,207,142,.12);color:var(--green)}
 
 /* ── ALERTS ── */
 .alert-bar{margin-bottom:14px}
@@ -307,6 +313,8 @@ table.dtbl{width:100%;border-collapse:collapse}
   <button class="nav-btn" data-p="provincias"><span class="nav-icon">⊛</span>Provincias</button>
   <button class="nav-btn" data-p="casos"><span class="nav-icon">⊞</span>Casos</button>
 
+  <div class="nav-sep">Integración</div>
+  <button class="nav-btn" data-p="sync"><span class="nav-icon">⟳</span>SurveyMonkey</button>
   <div class="nav-sep">Archivo</div>
   <button class="nav-btn" data-p="encuestas"><span class="nav-icon">◈</span>Encuestas</button>
   <button class="nav-btn" data-p="ayuda"><span class="nav-icon">?</span>Ayuda</button>
@@ -537,6 +545,128 @@ table.dtbl{width:100%;border-collapse:collapse}
       <strong style="color:var(--text)">4. Monitorear</strong> — el Dashboard muestra el avance de cada cuota en tiempo real con barras de progreso y alertas.<br><br>
       <strong style="color:var(--text)">5. Firebase</strong> — para sincronización en tiempo real entre dispositivos, configurá tu proyecto Firebase pegando las credenciales al inicio del archivo HTML.
     </div>
+  </div>
+</div>
+
+<!-- ══ SYNC SURVEYMONKEY ══ -->
+<div id="p-sync" class="panel">
+  <div class="pg-head">
+    <div>
+      <div class="pg-title">SurveyMonkey</div>
+      <div class="pg-sub">Sincronización automática de respuestas</div>
+    </div>
+    <div id="sync-sm-status" style="display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:12px;color:var(--muted)">
+      <span id="sync-sm-dot">●</span> <span id="sync-sm-label">Sin configurar</span>
+    </div>
+  </div>
+
+  <!-- Server URL -->
+  <div class="card">
+    <div class="card-hd">① URL del servidor Railway</div>
+    <p style="font-size:12.5px;color:var(--muted);margin-bottom:12px;line-height:1.7">
+      Ingresá la URL de tu servidor Railway (ej: <code style="font-family:var(--mono);color:var(--text)">https://pulso-sync.up.railway.app</code>).
+      El servidor es el que se conecta a SurveyMonkey y sube los datos a Firebase.
+    </p>
+    <div class="frow" style="align-items:flex-end;gap:10px">
+      <div class="field" style="flex:1">
+        <label>URL del servidor</label>
+        <input type="text" id="sm-server-url" placeholder="https://tu-app.up.railway.app" style="width:100%">
+      </div>
+      <button class="btn btn-w" onclick="testServer()">Probar conexión</button>
+    </div>
+    <div id="server-test-result" style="margin-top:10px;font-size:12px;font-family:var(--mono)"></div>
+  </div>
+
+  <!-- Survey selector -->
+  <div class="card">
+    <div class="card-hd">② Seleccioná la encuesta</div>
+    <div class="btn-row" style="margin-bottom:14px">
+      <button class="btn btn-w" onclick="loadSurveyList()">↺ Cargar mis encuestas</button>
+      <span id="sm-surveys-loading" style="font-size:12px;color:var(--muted);display:none">Cargando...</span>
+    </div>
+    <div id="sm-survey-list" style="display:none">
+      <div class="field" style="max-width:500px">
+        <label>Encuesta activa en SurveyMonkey</label>
+        <select id="sm-survey-select" onchange="onSurveySelect()" style="width:100%">
+          <option value="">Seleccioná una encuesta...</option>
+        </select>
+      </div>
+      <div id="sm-survey-meta" style="margin-top:10px;font-size:12px;color:var(--muted);font-family:var(--mono)"></div>
+    </div>
+  </div>
+
+  <!-- Muestra selector -->
+  <div class="card" id="sm-muestra-card" style="display:none">
+    <div class="card-hd">③ Seleccioná la muestra</div>
+    <div class="field" style="max-width:400px">
+      <label>Muestra a aplicar</label>
+      <select id="sm-muestra-select" style="width:100%">
+        <option value="">Seleccioná una muestra...</option>
+      </select>
+    </div>
+    <div style="margin-top:10px">
+      <div class="field" style="width:160px">
+        <label>N objetivo</label>
+        <input type="number" id="sm-n" value="2500" min="1">
+      </div>
+    </div>
+  </div>
+
+  <!-- Column mapping -->
+  <div class="card" id="sm-colmap-card" style="display:none">
+    <div class="card-hd">④ Mapeo de preguntas</div>
+    <p style="font-size:12.5px;color:var(--muted);margin-bottom:14px;line-height:1.7">
+      Indicá qué pregunta de la encuesta corresponde a cada dato necesario para el control de cuotas.
+    </p>
+    <div id="sm-col-map-fields" class="col-map-grid"></div>
+
+    <div id="sm-depto-section" style="margin-top:14px;display:none">
+      <div class="sep">Preguntas de departamento / localidad por provincia</div>
+      <p style="font-size:12px;color:var(--muted);margin-bottom:10px">
+        SurveyMonkey genera una pregunta por provincia. Indicá cuál corresponde a cada una.
+      </p>
+      <div id="sm-depto-map" class="col-map-grid"></div>
+    </div>
+
+    <div style="margin-top:16px">
+      <div class="sep">Filtro de elegibilidad (opcional)</div>
+      <div class="frow" style="gap:14px;flex-wrap:wrap">
+        <div class="field" style="flex:1;min-width:220px">
+          <label>Pregunta de voto (para filtrar)</label>
+          <select id="sm-filter-col" style="width:100%">
+            <option value="">(no filtrar)</option>
+          </select>
+        </div>
+        <div class="field" style="width:160px">
+          <label>Valor a excluir</label>
+          <input type="text" id="sm-filter-val" value="not answered">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Sync settings -->
+  <div class="card" id="sm-sync-settings" style="display:none">
+    <div class="card-hd">⑤ Configuración de sincronización</div>
+    <div class="frow" style="gap:14px;align-items:flex-end">
+      <div class="field">
+        <label>Actualizar cada (minutos)</label>
+        <input type="number" id="sm-interval" value="15" min="5" max="60" style="width:100px">
+        <div class="note">Mínimo 5 min para respetar los límites de la API</div>
+      </div>
+    </div>
+    <div class="btn-row" style="margin-top:16px">
+      <button class="btn btn-g" onclick="startSync()">▶ Iniciar sincronización automática</button>
+      <button class="btn btn-w" onclick="syncNow()">⟳ Sincronizar ahora</button>
+      <button class="btn btn-d" onclick="stopSync()">■ Detener</button>
+    </div>
+    <div id="sm-sync-msg" style="margin-top:10px;font-size:12px;color:var(--muted)"></div>
+  </div>
+
+  <!-- Last sync info -->
+  <div id="sm-last-sync-card" class="card" style="display:none">
+    <div class="card-hd">Último sincronismo</div>
+    <div id="sm-last-sync-info" style="font-family:var(--mono);font-size:12px;line-height:2;color:var(--muted)"></div>
   </div>
 </div>
 
@@ -1533,15 +1663,23 @@ function renderQuotaGrid(cells, m){
   cells.forEach(c=>cellMap[c.k]=c);
 
   const cellHtml=(cur,tgt,compact)=>{
-    if(!tgt) return `<div class="qcell-wrap cs-empty"><div class="qcell-nums"><span class="qcell-cur">—</span></div></div>`;
+    if(!tgt) return `<div class="qcell-wrap cs-empty"><div class="qcell-top"><span class="qcell-cur">—</span><span class="qcell-pct-badge">—</span></div></div>`;
     const pf=Math.min(cur/tgt,1);
     const pct=Math.round(pf*100);
     const st=pf>=1?'cs-full':pf*100>=APP.warnPct?'cs-warn':cur>0?'cs-ok':'cs-empty';
-    if(compact) return `<div class="qcell-wrap ${st}"><div class="qcell-nums"><span class="qcell-cur">${cur}</span><span class="qcell-tgt">/${tgt}</span></div><div style="font-family:var(--mono);font-size:9px;color:var(--muted);text-align:right">${pct}%</div></div>`;
+    const icon=pf>=1?'✓ ':pf*100>=APP.warnPct?'':'';
+    if(compact) return `<div class="qcell-wrap ${st}" style="padding:8px 12px;min-width:90px">
+      <div class="qcell-top" style="margin-bottom:4px"><span class="qcell-cur" style="font-size:18px">${cur}</span><span class="qcell-pct-badge" style="font-size:10px">${pct}%</span></div>
+      <div class="qcell-tgt" style="font-size:10px;margin-bottom:4px">de ${tgt}</div>
+      <div class="qcell-bar-track" style="height:3px"><div class="qcell-bar-fill" style="width:${pct}%"></div></div>
+    </div>`;
     return `<div class="qcell-wrap ${st}">
-      <div class="qcell-nums"><span class="qcell-cur">${cur}</span><span class="qcell-tgt">/${tgt}</span></div>
+      <div class="qcell-top">
+        <span class="qcell-cur">${cur}</span>
+        <span class="qcell-pct-badge">${icon}${pct}%</span>
+      </div>
+      <div class="qcell-tgt">de ${tgt} objetivo</div>
       <div class="qcell-bar-track"><div class="qcell-bar-fill" style="width:${pct}%"></div></div>
-      <div class="qcell-pct">${pct}%</div>
     </div>`;
   };
 
@@ -1892,6 +2030,259 @@ function doReset(){
   if(delMuestra){APP.activeMuestraId=null;APP.quotas={};APP.n=2500;APP.warnPct=80;}
   save(); renderAll(); renderMuestras(); closeModal('reset-modal');
 }
+
+// ══════════════════════════════════════════
+// SURVEYMONKEY SYNC
+// ══════════════════════════════════════════
+let _smQuestions = []; // cached question list for selected survey
+let _smServerUrl = '';
+
+function getSyncServerUrl() {
+  return (document.getElementById('sm-server-url')?.value || '').trim().replace(/\/$/, '');
+}
+
+async function testServer() {
+  const url = getSyncServerUrl();
+  const el = document.getElementById('server-test-result');
+  if (!url) { el.textContent = '⚠ Ingresá la URL primero'; el.style.color = 'var(--amber)'; return; }
+  el.textContent = 'Probando...'; el.style.color = 'var(--muted)';
+  try {
+    const r = await fetch(`${url}/`);
+    const data = await r.json();
+    if (data.status === 'ok') {
+      el.style.color = 'var(--green)';
+      el.textContent = `✓ Servidor OK · Firebase: ${data.firebase ? '✓' : '✗'} · SM Token: ${data.sm_token ? '✓' : '✗'} · Sync activo: ${data.syncActive ? '✓' : 'no'}`;
+      _smServerUrl = url;
+      // Save URL
+      localStorage.setItem('pulso_sync_url', url);
+    } else {
+      el.style.color = 'var(--red)'; el.textContent = '✗ Respuesta inesperada';
+    }
+  } catch(e) {
+    el.style.color = 'var(--red)'; el.textContent = `✗ No se pudo conectar: ${e.message}`;
+  }
+}
+
+async function loadSurveyList() {
+  const url = getSyncServerUrl() || _smServerUrl;
+  if (!url) { alert('Ingresá y probá la URL del servidor primero.'); return; }
+  _smServerUrl = url;
+  const loadEl = document.getElementById('sm-surveys-loading');
+  const listEl = document.getElementById('sm-survey-list');
+  if (loadEl) loadEl.style.display = 'inline';
+  try {
+    const r = await fetch(`${url}/surveys`);
+    const data = await r.json();
+    if (data.error) throw new Error(data.error);
+    const sel = document.getElementById('sm-survey-select');
+    if (sel) {
+      sel.innerHTML = '<option value="">Seleccioná una encuesta...</option>' +
+        (data.surveys || []).map(s =>
+          `<option value="${s.id}" data-count="${s.response_count}" data-title="${encodeURIComponent(s.title)}">${s.title} (${s.response_count} respuestas)</option>`
+        ).join('');
+    }
+    if (listEl) listEl.style.display = 'block';
+    // Populate muestra selector
+    populateSMMusetraSelect();
+  } catch(e) {
+    alert('Error al cargar encuestas: ' + e.message);
+  } finally {
+    if (loadEl) loadEl.style.display = 'none';
+  }
+}
+
+function populateSMMusetraSelect() {
+  const sel = document.getElementById('sm-muestra-select'); if (!sel) return;
+  sel.innerHTML = '<option value="">Seleccioná una muestra...</option>' +
+    APP.muestras.map(m => `<option value="${m.id}">${m.nombre}</option>`).join('');
+  // Pre-select active muestra
+  if (APP.activeMuestraId) sel.value = APP.activeMuestraId;
+  document.getElementById('sm-muestra-card').style.display = 'block';
+}
+
+async function onSurveySelect() {
+  const sel = document.getElementById('sm-survey-select');
+  const surveyId = sel?.value; if (!surveyId) return;
+  const opt = sel.options[sel.selectedIndex];
+  const meta = document.getElementById('sm-survey-meta');
+  if (meta) meta.textContent = `ID: ${surveyId} · ${decodeURIComponent(opt.dataset.title || '')} · ${opt.dataset.count} respuestas`;
+
+  // Load questions
+  const url = getSyncServerUrl() || _smServerUrl; if (!url) return;
+  try {
+    const r = await fetch(`${url}/surveys/${surveyId}/questions`);
+    const data = await r.json();
+    if (data.error) throw new Error(data.error);
+    _smQuestions = data.questions || [];
+    buildColMapUI(_smQuestions);
+    document.getElementById('sm-colmap-card').style.display = 'block';
+    document.getElementById('sm-sync-settings').style.display = 'block';
+  } catch(e) {
+    alert('Error al cargar preguntas: ' + e.message);
+  }
+}
+
+function buildColMapUI(questions) {
+  const container = document.getElementById('sm-col-map-fields'); if (!container) return;
+  const mkSel = (id, label, kws) => {
+    const guess = questions.findIndex(q => kws.some(k => norm(q.heading).includes(k)));
+    return `<div class="field"><label>${label}</label><select id="${id}" style="width:100%">
+      <option value="">(ninguna)</option>
+      ${questions.map(q => `<option value="${q.id}" ${q === questions[guess] ? 'selected' : ''}>${q.heading}</option>`).join('')}
+    </select></div>`;
+  };
+
+  container.innerHTML =
+    mkSel('smc-gen', 'Género / Sexo', ['genero','género','sexo','gender']) +
+    mkSel('smc-edad', 'Edad', ['edad','age','años']) +
+    mkSel('smc-prov', 'Provincia / Nivel 1', ['provincia','province','prov']) +
+    mkSel('smc-id', 'ID caso (opcional)', ['id','respondent','encuestado']);
+
+  // Filter col
+  const fSel = document.getElementById('sm-filter-col');
+  if (fSel) {
+    fSel.innerHTML = '<option value="">(no filtrar)</option>' +
+      questions.map(q => `<option value="${q.id}">${q.heading}</option>`).join('');
+    const fGuess = questions.findIndex(q => ['candidatos','espacio','vot','legislativ'].some(k => norm(q.heading).includes(k)));
+    if (fGuess >= 0) fSel.value = questions[fGuess].id;
+  }
+
+  // Depto map: show if there are province-looking questions
+  buildDeptoMapUI(questions);
+}
+
+function buildDeptoMapUI(questions) {
+  const section = document.getElementById('sm-depto-section');
+  const container = document.getElementById('sm-depto-map');
+  if (!section || !container) return;
+
+  const m = getActiveMuestra();
+  let provs = [];
+  if (m && m.refTable && (m.cobertura === 'nacional' || m.cobertura === 'custom')) {
+    provs = [...new Set(m.refTable.map(r => r.nivel1))].filter(Boolean).sort();
+  }
+  if (!provs.length) { section.style.display = 'none'; return; }
+  section.style.display = 'block';
+  container.innerHTML = provs.map(prov => {
+    const np = norm(prov).replace(/\s/g, '').substring(0, 6);
+    const guess = questions.findIndex(q => norm(q.heading).replace(/\s/g, '').includes(np));
+    return `<div class="field"><label>${prov}</label>
+      <select id="smd-${prov.replace(/[^a-zA-Z0-9]/g,'_')}" data-prov="${prov}" style="width:100%">
+        <option value="">(no tiene pregunta)</option>
+        ${questions.map(q => `<option value="${q.id}" ${q === questions[guess] ? 'selected' : ''}>${q.heading}</option>`).join('')}
+      </select></div>`;
+  }).join('');
+}
+
+function buildColMap() {
+  const colMap = {
+    gen: document.getElementById('smc-gen')?.value || '',
+    edad: document.getElementById('smc-edad')?.value || '',
+    prov: document.getElementById('smc-prov')?.value || '',
+    idCol: document.getElementById('smc-id')?.value || '',
+    filterCol: document.getElementById('sm-filter-col')?.value || '',
+    filterVal: document.getElementById('sm-filter-val')?.value || 'not answered',
+    depto: {},
+  };
+  document.querySelectorAll('[data-prov]').forEach(sel => {
+    if (sel.value) colMap.depto[sel.dataset.prov] = sel.value;
+  });
+  return colMap;
+}
+
+async function startSync() {
+  const url = getSyncServerUrl() || _smServerUrl;
+  const surveyId = document.getElementById('sm-survey-select')?.value;
+  const muestraId = parseInt(document.getElementById('sm-muestra-select')?.value);
+  const intervalMinutes = parseInt(document.getElementById('sm-interval')?.value) || 15;
+  const n = parseInt(document.getElementById('sm-n')?.value) || APP.n;
+
+  if (!url) { alert('Ingresá la URL del servidor.'); return; }
+  if (!surveyId) { alert('Seleccioná una encuesta.'); return; }
+  if (!muestraId) { alert('Seleccioná una muestra.'); return; }
+
+  const colMap = buildColMap();
+  if (!colMap.gen || !colMap.edad || !colMap.prov) {
+    alert('Mapeá al menos Género, Edad y Provincia.');
+    return;
+  }
+
+  // Update N in app state
+  APP.n = n;
+  APP.activeMuestraId = muestraId;
+  // Recalculate quotas
+  const m = APP.muestras.find(x => x.id === muestraId);
+  if (m) { const quotas={}; Object.entries(m.distribution||{}).forEach(([k,pct])=>{quotas[k]=Math.round(pct/100*n);}); APP.quotas=quotas; }
+  save();
+
+  const msgEl = document.getElementById('sm-sync-msg');
+  if (msgEl) { msgEl.textContent = 'Configurando...'; msgEl.style.color = 'var(--muted)'; }
+
+  try {
+    const r = await fetch(`${url}/sync/config`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ surveyId, colMap, muestraId, intervalMinutes }),
+    });
+    const data = await r.json();
+    if (data.ok) {
+      if (msgEl) { msgEl.textContent = `✓ ${data.message}`; msgEl.style.color = 'var(--green)'; }
+      updateSyncStatus(true, `Cada ${intervalMinutes} min`);
+      // Save config to localStorage
+      localStorage.setItem('pulso_sync_config', JSON.stringify({ url, surveyId, muestraId, intervalMinutes }));
+    } else {
+      throw new Error(data.error || 'Error desconocido');
+    }
+  } catch(e) {
+    if (msgEl) { msgEl.textContent = `✗ Error: ${e.message}`; msgEl.style.color = 'var(--red)'; }
+  }
+}
+
+async function syncNow() {
+  const url = getSyncServerUrl() || _smServerUrl;
+  if (!url) { alert('Configurá el servidor primero.'); return; }
+  const msgEl = document.getElementById('sm-sync-msg');
+  if (msgEl) { msgEl.textContent = '⟳ Sincronizando...'; msgEl.style.color = 'var(--amber)'; }
+  try {
+    const r = await fetch(`${url}/sync/now`, { method: 'POST' });
+    const data = await r.json();
+    if (data.ok) {
+      if (msgEl) { msgEl.textContent = '✓ Sincronización completada'; msgEl.style.color = 'var(--green)'; }
+    } else {
+      throw new Error(data.error);
+    }
+  } catch(e) {
+    if (msgEl) { msgEl.textContent = `✗ ${e.message}`; msgEl.style.color = 'var(--red)'; }
+  }
+}
+
+async function stopSync() {
+  const url = getSyncServerUrl() || _smServerUrl;
+  if (!url) return;
+  try {
+    await fetch(`${url}/sync/stop`, { method: 'DELETE' });
+    updateSyncStatus(false, 'Detenido');
+    const msgEl = document.getElementById('sm-sync-msg');
+    if (msgEl) { msgEl.textContent = 'Sync detenido'; msgEl.style.color = 'var(--muted)'; }
+  } catch(e) {}
+}
+
+function updateSyncStatus(active, label) {
+  const dot = document.getElementById('sync-sm-dot');
+  const lbl = document.getElementById('sync-sm-label');
+  if (dot) dot.style.color = active ? 'var(--green)' : 'var(--muted)';
+  if (lbl) lbl.textContent = label || (active ? 'Activo' : 'Inactivo');
+}
+
+// Restore saved server URL on load
+(function() {
+  const saved = localStorage.getItem('pulso_sync_url');
+  if (saved) {
+    const el = document.getElementById('sm-server-url');
+    if (el) el.value = saved;
+    _smServerUrl = saved;
+  }
+})();
 
 // ══════════════════════════════════════════
 // INIT
