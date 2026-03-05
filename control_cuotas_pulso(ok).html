@@ -445,7 +445,7 @@ body.observer-mode .observer-badge{display:inline-block}
     <div class="nav-sep" id="nav-enc-label">Encuesta activa</div>
     <button class="nav-btn" data-p="dashboard"><span class="nav-icon">▦</span>Dashboard</button>
     <button class="nav-btn" data-p="provincias"><span class="nav-icon">⊛</span>Provincias</button>
-    <button class="nav-btn" data-p="estrato4"><span class="nav-icon">④</span>Estrato 4</button>
+    <button class="nav-btn" data-p="estrato4"><span class="nav-icon">⊟</span>Por Estrato</button>
     <button class="nav-btn" data-p="meta"><span class="nav-icon">⬡</span>Pauta Meta</button>
     <button class="nav-btn" data-p="velocidad"><span class="nav-icon">◎</span>Velocidad</button>
     <button class="nav-btn" data-p="casos"><span class="nav-icon">⊞</span>Casos</button>
@@ -866,12 +866,20 @@ body.observer-mode .observer-badge{display:inline-block}
 <div id="p-estrato4" class="panel">
   <div class="pg-head">
     <div>
-      <div class="pg-title">Estrato 4</div>
-      <div class="pg-sub" id="e4-sub">Casos en estrato 4 por provincia y departamento</div>
+      <div class="pg-title">Detalle por Estrato</div>
+      <div class="pg-sub" id="e4-sub">Casos por provincia y departamento</div>
     </div>
     <div class="btn-row">
+      <select id="e4-estrato-sel" onchange="renderEstrato4()"
+        style="background:var(--s2);border:1px solid var(--b2);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:12px;padding:7px 10px;outline:none">
+        <option value="4">Estrato 4</option>
+        <option value="3">Estrato 3</option>
+        <option value="2">Estrato 2</option>
+        <option value="1">Estrato 1</option>
+        <option value="0">Estrato 0</option>
+      </select>
       <input id="e4-search" placeholder="Buscar provincia o depto..." oninput="renderEstrato4()"
-        style="background:var(--s2);border:1px solid var(--b2);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:12px;padding:7px 10px;outline:none;width:220px">
+        style="background:var(--s2);border:1px solid var(--b2);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:12px;padding:7px 10px;outline:none;width:200px">
       <select id="e4-sort" onchange="renderEstrato4()"
         style="background:var(--s2);border:1px solid var(--b2);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:12px;padding:7px 10px;outline:none">
         <option value="casos">Mayor a menor</option>
@@ -1172,7 +1180,7 @@ document.querySelectorAll('.modal-bg').forEach(m=>m.addEventListener('click',e=>
 function norm(s){ return(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim(); }
 function ck(g,ag,e){ return `${g}||${ag}||${e}`; }
 function cParts(k){ return k.split('||'); }
-function countCell(g,ag,e){ return (APP.cases||[]).filter(c=>c.gen===g&&c.ageGrp===ag&&c.estrato===e).length; }
+function countCell(g,ag,e){ const es=String(e); return (APP.cases||[]).filter(c=>c.gen===g&&c.ageGrp===ag&&String(c.estrato)===es).length; }
 function countJovenes(){ return APP.cases.filter(c=>parseInt(c.edad)<=29).length; }
 
 function parseAgeBounds(groups){
@@ -1221,7 +1229,7 @@ function lookupEst(prov, depto, m){
     r = m.refTable.find(x=>normProv(x.nivel1)===pn&&norm(x.nivel2)===dn);
     if(!r) r = m.refTable.find(x=>normProv(x.nivel1)===pn&&(norm(x.nivel2).includes(dn)||dn.includes(norm(x.nivel2))));
   }
-  return r?r.estrato:null;
+  return r?(r.estrato!==null&&r.estrato!==undefined?String(r.estrato):null):null;
 }
 
 // ══════════════════════════════════════════
@@ -1755,7 +1763,7 @@ function processSurvey(){
     let depto='';
     if(provColMap[prov]!==undefined) depto=(row[provColMap[prov]]||'').trim();
     if(!depto){ for(const[p,ci]of Object.entries(provColMap)){ if(norm(p)===norm(prov)&&(row[ci]||'').trim()){depto=(row[ci]||'').trim();break;} } }
-    const estrato=lookupEst(prov,depto)||'?';
+    const _estLookup=lookupEst(prov,depto); const estrato=(_estLookup!==null&&_estLookup!==undefined)?String(_estLookup):'?';
     const ageGrp=getAgeGrp(edad,m.ageBounds,m.ageGroups);
     const key=ck(gen,ageGrp,estrato);
     const id=idIdx>=0?(row[idIdx]||`R${String(APP.nextId).padStart(4,'0')}`).trim():`R${String(APP.nextId).padStart(4,'0')}`;
@@ -1835,7 +1843,7 @@ function renderDash(){
   // Build cell data early (needed by semaforo)
   const cells = keys.map(k=>{
     const[g,ag,e]=cParts(k);
-    const tgt=quotas[k], cur=cases.filter(c=>c.gen===g&&c.ageGrp===ag&&c.estrato===e).length;
+    const tgt=quotas[k], cur=cases.filter(c=>c.gen===g&&c.ageGrp===ag&&String(c.estrato)===String(e)).length;
     const pf=tgt>0?cur/tgt:0;
     const st=pf>=1?'full':(pf*100>=(APP.warnPct||80)?'warn':'ok');
     return{k,g,ag,e,tgt,cur,pf,st};
@@ -1936,7 +1944,7 @@ function renderQuotaGrid(cells, m){
   const cellMap={};
   cells.forEach(c=>{
     // Recompute cur from APP.cases to ensure fresh data
-    c.cur = (APP.cases||[]).filter(x=>x.gen===c.g&&x.ageGrp===c.ag&&x.estrato===c.e).length;
+    c.cur = (APP.cases||[]).filter(x=>x.gen===c.g&&x.ageGrp===c.ag&&String(x.estrato)===String(c.e)).length;
     c.pf = c.tgt>0?c.cur/c.tgt:0;
     c.st = c.pf>=1?'full':(c.pf*100>=(APP.warnPct||80)?'warn':'ok');
     cellMap[c.k]=c;
@@ -2144,7 +2152,7 @@ function addManual(){
   const depto=document.getElementById('m-depto').value;
   const idRaw=document.getElementById('m-id').value.trim();
   if(!edad||isNaN(edad)){alert('Ingresá una edad válida.');return;}
-  const estrato=lookupEst(prov,depto)||'?';
+  const _estM=lookupEst(prov,depto); const estrato=(_estM!==null&&_estM!==undefined)?String(_estM):'?';
   const ageGrp=getAgeGrp(edad,m.ageBounds,m.ageGroups);
   const key=ck(gen,ageGrp,estrato);
   const tgt=APP.quotas[key]||0;
@@ -2623,29 +2631,35 @@ function enterSurvey(idx){
   const sv = getActiveSurveys()[idx];
   if(!sv) return;
 
-  // Set APP state from survey
   APP.activeMuestraId = sv.muestraId;
   APP.n = sv.n || 2500;
   APP.warnPct = sv.warnPct || 80;
 
-  // Re-process raw cases if estrato is still unknown
   const m = (APP.muestras||[]).find(x => x.id === sv.muestraId);
-  if(m && sv.cases && sv.cases.length > 0 && sv.cases[0].estrato === '?'){
-    sv.cases = processRawCases(sv.cases, m);
-    sv.quotas = sv.quotas || {};
-    if(m.distribution && !Object.keys(sv.quotas).length){
-      Object.entries(m.distribution).forEach(([k,pct])=>{ sv.quotas[k]=Math.round(pct/100*sv.n); });
-    }
+
+  // Always reprocess from raw if available and muestra exists
+  const rawToProcess = sv._rawCases || (sv.cases && sv.cases.some(c=>c._raw) ? sv.cases : null);
+  if(m && rawToProcess && rawToProcess.length > 0){
+    sv.cases = processRawCases(rawToProcess, m);
+    sv._rawCases = rawToProcess; // keep originals
+    console.log(`Reprocessed ${sv.cases.length} cases for "${sv.smTitle}"`);
+    const noEst = sv.cases.filter(c=>c.estrato==='?').length;
+    if(noEst > 0) console.warn(`  ⚠ ${noEst} cases still with estrato='?' — check refTable`);
   }
 
-  APP.cases = sv.cases || [];
+  // Compute quotas from muestra if missing
+  if(m && m.distribution && (!sv.quotas || !Object.keys(sv.quotas).length)){
+    sv.quotas = {};
+    Object.entries(m.distribution).forEach(([k,pct])=>{ sv.quotas[k]=Math.round(pct/100*sv.n); });
+  }
+
+  APP.cases  = sv.cases  || [];
   APP.quotas = sv.quotas || {};
 
-  // Show survey-specific nav
-  const navSec = document.getElementById('nav-encuesta-section');
+  const navSec   = document.getElementById('nav-encuesta-section');
   const navLabel = document.getElementById('nav-enc-label');
-  if(navSec) navSec.style.display = 'block';
-  if(navLabel) navLabel.textContent = sv.smTitle ? sv.smTitle.substring(0,22)+(sv.smTitle.length>22?'…':'') : 'Encuesta activa';
+  if(navSec)   navSec.style.display = 'block';
+  if(navLabel) navLabel.textContent  = sv.smTitle ? sv.smTitle.substring(0,22)+(sv.smTitle.length>22?'…':'') : 'Encuesta activa';
 
   goPanel('dashboard');
   renderAll();
@@ -2709,13 +2723,15 @@ function addSurveyToHome(smSurveyId, smTitle, muestraId, n, colMap, intervalMinu
 
 // ── processRawCases: assign estrato + ageGrp using muestra refTable ──
 function processRawCases(rawCases, muestra){
-  if(!rawCases) return [];
-  if(!muestra) {
-    // No muestra: return raw cases as-is with unknown estrato/age
+  if(!rawCases || !rawCases.length) return [];
+  if(!muestra || !muestra.refTable || !muestra.refTable.length) {
+    // No muestra yet — keep raw fields, mark unknowns, preserve for later reprocessing
     return rawCases.map((raw,i) => ({
-      ...raw, estrato:'?', ageGrp:'?',
+      ...raw,
+      estrato: '?', ageGrp: '?',
       key: ck(raw.gen||'?', '?', '?'),
-      id: raw.id || `R${String(i+1).padStart(4,'0')}`
+      id: raw.id || `R${String(i+1).padStart(4,'0')}`,
+      _raw: true // flag: needs reprocessing when muestra available
     }));
   }
   const groups = muestra.ageGroups || [];
@@ -2723,10 +2739,11 @@ function processRawCases(rawCases, muestra){
   let nextId = 1;
 
   return rawCases.map(raw => {
-    const estrato = lookupEst(raw.prov, raw.depto, muestra) || '?';
-    const ageGrp = getAgeGrp(raw.edad, bounds, groups);
+    const est = lookupEst(raw.prov, raw.depto, muestra);
+    const estrato = (est !== null && est !== undefined) ? String(est) : '?';
+    const ageGrp = getAgeGrp(parseInt(raw.edad), bounds, groups);
     const key = ck(raw.gen, ageGrp, estrato);
-    return { ...raw, estrato, ageGrp, key, id: raw.id || `R${String(nextId++).padStart(4,'0')}` };
+    return { ...raw, estrato, ageGrp, key, id: raw.id || `R${String(nextId++).padStart(4,'0')}`, _raw: false };
   });
 }
 
@@ -2735,11 +2752,11 @@ function updateSurveyFromFirebase(data){
   if(!data || !APP.activeSurveys) return;
   if(!data.rawCases && !data.cases) { renderHome(); return; }
 
-  // Update ALL activeSurveys with new data
   APP.activeSurveys.forEach(sv => {
-    if(data.lastSync) sv.lastSync = data.lastSync;
+    if(data.lastSync)  sv.lastSync  = data.lastSync;
     if(data.syncStats) sv.syncStats = data.syncStats;
     if(data.rawCases){
+      sv._rawCases = data.rawCases; // always store originals
       const muestra = (APP.muestras||[]).find(m => m.id === sv.muestraId);
       sv.cases = processRawCases(data.rawCases, muestra);
     } else if(data.cases){
@@ -3074,10 +3091,12 @@ function renderEstrato4(){
   const search = (document.getElementById('e4-search')?.value||'').toLowerCase();
   const sortBy = document.getElementById('e4-sort')?.value || 'casos';
 
-  const e4cases = cases.filter(c => String(c.estrato) === '4');
+  // Get estrato number from selector (default 4)
+  const e4sel = document.getElementById('e4-estrato-sel')?.value || '4';
+  const e4cases = cases.filter(c => String(c.estrato) === e4sel);
 
   const subEl = document.getElementById('e4-sub');
-  if(subEl) subEl.textContent = `${e4cases.length} casos en estrato 4`;
+  if(subEl) subEl.textContent = `${e4cases.length} casos en estrato ${e4sel}`;
 
   const byProv = {};
   e4cases.forEach(c => {
