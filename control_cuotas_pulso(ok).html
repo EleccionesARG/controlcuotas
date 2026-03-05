@@ -1895,14 +1895,23 @@ function renderDash(){
     return;
   }
 
-  // Alerts
+  // Alerts — sorted by estrato, then gender, then age group
   const alertsEl=el('dash-alerts');
   if(alertsEl){
-    const fullC=cells.filter(c=>c.st==='full'), warnC=cells.filter(c=>c.st==='warn');
-    const all=[...fullC.map(c=>({cls:'al-r',txt:`🔴 <strong>Completa:</strong> Est.${c.e} · ${c.g} · ${c.ag} — ${c.cur}/${c.tgt}`})),...warnC.map(c=>({cls:'al-a',txt:`🟡 <strong>${Math.round(c.pf*100)}%</strong> — Est.${c.e} · ${c.g} · ${c.ag} — ${c.cur}/${c.tgt}`}))];
+    const fullC=cells.filter(c=>c.st==='full');
+    const warnC=cells.filter(c=>c.st==='warn');
+    const sortAlerts=(arr)=>arr.slice().sort((a,b)=>{
+      const eA=String(a.e), eB=String(b.e);
+      if(eA!==eB) return eA.localeCompare(eB,'es',{numeric:true});
+      if(a.g!==b.g) return a.g.localeCompare(b.g,'es');
+      return a.ag.localeCompare(b.ag,'es',{numeric:true});
+    });
+    const fullSorted=sortAlerts(fullC).map(c=>({cls:'al-r',txt:`🔴 <strong>Completa:</strong> Est.${c.e} · ${c.g} · ${c.ag} — ${c.cur}/${c.tgt}`}));
+    const warnSorted=sortAlerts(warnC).map(c=>({cls:'al-a',txt:`🟡 <strong>${Math.round(c.pf*100)}%</strong> · Est.${c.e} · ${c.g} · ${c.ag} — ${c.cur}/${c.tgt}`}));
+    const all=[...fullSorted,...warnSorted];
     if(!all.length&&tot>0) alertsEl.innerHTML=`<div class="al al-g">✓ Todo en orden</div>`;
     else if(all.length){
-      const SHOW=3, vis=all.slice(0,SHOW), hid=all.slice(SHOW);
+      const SHOW=5, vis=all.slice(0,SHOW), hid=all.slice(SHOW);
       alertsEl.innerHTML=vis.map(a=>`<div class="al ${a.cls}">${a.txt}</div>`).join('')+(hid.length?`<div id="alerts-more" style="display:none">${hid.map(a=>`<div class="al ${a.cls}">${a.txt}</div>`).join('')}</div><button class="alerts-more-btn" onclick="toggleAlertsMore(this)" data-n="${hid.length}">▾ Ver ${hid.length} más</button>`:'');
     }
   }
@@ -2977,59 +2986,82 @@ function renderVelocidad(){
 }
 
 // ══════════════════════════════════════════
-// META ADS PANEL
+// META ADS PANEL — 2 conjuntos por estrato: Jóvenes 18-29 vs Adultos 30+
 // ══════════════════════════════════════════
 function renderMeta(){
   const wrap = document.getElementById('meta-table-wrap'); if(!wrap) return;
   const threshold = parseInt(document.getElementById('meta-threshold')?.value||'80');
-  const cases = (typeof getCases==='function') ? getCases() : (APP.cases||[]);
+  const cases = APP.cases||[];
   const quotas = APP.quotas || {};
   const keys = Object.keys(quotas).filter(k=>quotas[k]>0);
   if(!keys.length){ wrap.innerHTML='<div class="card" style="color:var(--muted);text-align:center;padding:30px">Activá una muestra para ver las recomendaciones</div>'; return; }
 
-  // Build recommendations per quota
-  const rows = keys.map(k => {
-    const [g,ag,e] = cParts(k);
-    const tgt = quotas[k];
-    const cur = cases.filter(c=>c.gen===g&&c.ageGrp===ag&&c.estrato===e).length;
-    const pct = tgt > 0 ? Math.round(cur/tgt*100) : 0;
-    let action, actionClass, actionTxt, priority;
-    if(pct >= 100){ action='PAUSAR'; actionClass='meta-action-pause'; actionTxt='Cuota completa — pausar conjunto'; priority=0; }
-    else if(pct >= threshold){ action='REDUCIR'; actionClass='meta-action-reduce'; actionTxt=`${pct}% alcanzado — reducir alcance`; priority=1; }
-    else { action='ACTIVO'; actionClass='meta-action-ok'; actionTxt=`${pct}% — continuar normalmente`; priority=2; }
-    return { k, g, ag, e, tgt, cur, pct, action, actionClass, actionTxt, priority };
-  }).sort((a,b) => a.priority - b.priority || a.e.localeCompare(b.e) || a.g.localeCompare(b.g));
+  const m = (typeof getCurrentMuestra==='function') ? getCurrentMuestra() : getActiveMuestra();
+  const estratos = (m?.estratos || [...new Set(keys.map(k=>cParts(k)[2]))]).sort((a,b)=>String(a).localeCompare(String(b),'es',{numeric:true}));
+  const generos = ['Masculino','Femenino'];
+  const ageGroups = m?.ageGroups || [...new Set(keys.map(k=>cParts(k)[1]))];
+  const isJoven = ag => /^18/.test(ag) || ag==='18-29' || ag==='18-30';
 
-  const toPause = rows.filter(r=>r.action==='PAUSAR').length;
-  const toReduce = rows.filter(r=>r.action==='REDUCIR').length;
+  const adsets = [];
+  estratos.forEach(e => {
+    generos.forEach(g => {
+      const jovenAgs  = ageGroups.filter(ag=>isJoven(ag));
+      const adultoAgs = ageGroups.filter(ag=>!isJoven(ag));
+      [{label:'18-29', ags:jovenAgs, tipo:'Jóvenes'},{label:'30+', ags:adultoAgs, tipo:'Adultos'}].forEach(({label,ags,tipo})=>{
+        if(!ags.length) return;
+        const cur = ags.reduce((s,ag)=>s+cases.filter(c=>c.gen===g&&c.ageGrp===ag&&c.estrato===e).length,0);
+        const tgt = ags.reduce((s,ag)=>s+(quotas[`${g}||${ag}||${e}`]||0),0);
+        if(!tgt) return;
+        const pct = Math.round(cur/tgt*100);
+        const allComplete = ags.every(ag=>{ const k=`${g}||${ag}||${e}`; return quotas[k]>0 && cases.filter(x=>x.gen===g&&x.ageGrp===ag&&x.estrato===e).length>=quotas[k]; });
+        let action,actionCls,priority;
+        if(allComplete){action='PAUSAR';actionCls='meta-action-pause';priority=0;}
+        else if(pct>=threshold){action='REDUCIR';actionCls='meta-action-reduce';priority=1;}
+        else{action='ACTIVO';actionCls='meta-action-ok';priority=2;}
+        adsets.push({e,g,tipo,label,cur,tgt,pct,action,actionCls,priority});
+      });
+    });
+  });
+  adsets.sort((a,b)=>a.priority-b.priority||String(a.e).localeCompare(String(b.e),'es',{numeric:true})||a.g.localeCompare(b.g));
 
-  wrap.innerHTML = `
+  const toPause=adsets.filter(r=>r.action==='PAUSAR').length;
+  const toReduce=adsets.filter(r=>r.action==='REDUCIR').length;
+  const toActive=adsets.filter(r=>r.action==='ACTIVO').length;
+
+  wrap.innerHTML=`
     <div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap">
-      <div style="background:rgba(224,90,90,.1);border:1px solid rgba(224,90,90,.3);border-radius:10px;padding:10px 16px;min-width:120px">
-        <div style="font-family:var(--mono);font-size:22px;font-weight:800;color:var(--red)">${toPause}</div>
-        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-top:3px">Pausar</div>
-      </div>
-      <div style="background:rgba(240,166,46,.1);border:1px solid rgba(240,166,46,.3);border-radius:10px;padding:10px 16px;min-width:120px">
-        <div style="font-family:var(--mono);font-size:22px;font-weight:800;color:var(--amber)">${toReduce}</div>
-        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-top:3px">Reducir</div>
-      </div>
-      <div style="background:rgba(62,207,142,.08);border:1px solid rgba(62,207,142,.2);border-radius:10px;padding:10px 16px;min-width:120px">
-        <div style="font-family:var(--mono);font-size:22px;font-weight:800;color:var(--green)">${rows.length-toPause-toReduce}</div>
-        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-top:3px">Activos</div>
-      </div>
+      ${[['PAUSAR',toPause,'var(--red)','rgba(224,90,90,.1)','rgba(224,90,90,.3)'],
+         ['REDUCIR',toReduce,'var(--amber)','rgba(240,166,46,.1)','rgba(240,166,46,.3)'],
+         ['ACTIVOS',toActive,'var(--green)','rgba(62,207,142,.08)','rgba(62,207,142,.2)'],
+         ['CONJUNTOS',adsets.length,'var(--muted)','var(--s2)','var(--border)']
+        ].map(([l,v,c,bg,br])=>`<div style="background:${bg};border:1px solid ${br};border-radius:10px;padding:10px 16px;min-width:110px">
+          <div style="font-family:var(--mono);font-size:22px;font-weight:800;color:${c}">${v}</div>
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-top:3px">${l}</div>
+        </div>`).join('')}
     </div>
     <div style="background:var(--s1);border:1px solid var(--border);border-radius:12px;overflow:hidden">
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr 80px 80px 140px;padding:10px 16px;background:var(--s2);border-bottom:1px solid var(--border);font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);gap:8px">
-        <span>Género</span><span>Edad</span><span>Estrato</span><span>Casos</span><span>Avance</span><span>Acción</span>
+      <div style="display:grid;grid-template-columns:80px 110px 100px 140px 80px 80px 110px;padding:10px 16px;background:var(--s2);border-bottom:1px solid var(--border);font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);gap:8px">
+        <span>Estrato</span><span>Género</span><span>Segmento</span><span>Nombre</span><span>Casos</span><span>%</span><span>Acción</span>
       </div>
-      ${rows.map(r=>`<div class="meta-quota-row" style="display:grid;grid-template-columns:1fr 1fr 1fr 80px 80px 140px;gap:8px;align-items:center">
-        <span style="font-size:13px;font-weight:600">${r.g}</span>
-        <span style="font-family:var(--mono);font-size:12px">${r.ag}</span>
-        <span style="font-family:var(--mono);font-size:12px">Est. ${r.e}</span>
-        <span style="font-family:var(--mono);font-size:13px;font-weight:700">${r.cur}/${r.tgt}</span>
-        <span style="font-family:var(--mono);font-size:13px;font-weight:700;color:${r.pct>=100?'var(--red)':r.pct>=threshold?'var(--amber)':'var(--green)'}">${r.pct}%</span>
-        <span class="meta-action-badge ${r.actionClass}">${r.action}</span>
-      </div>`).join('')}
+      ${adsets.map((r,i)=>{
+        const nombre=`E${r.e}_${r.g==='Masculino'?'M':'F'}_${r.label}`;
+        const bc=r.action==='PAUSAR'?'var(--red)':r.action==='REDUCIR'?'var(--amber)':'var(--green)';
+        return`<div style="display:grid;grid-template-columns:80px 110px 100px 140px 80px 80px 110px;gap:8px;align-items:center;padding:11px 16px;border-bottom:1px solid var(--border);${i%2===1?'background:rgba(255,255,255,.012)':''}">
+          <span style="font-family:var(--mono);font-weight:700">Est. ${r.e}</span>
+          <span style="font-size:13px">${r.g}</span>
+          <span style="font-size:12px;color:var(--muted)">${r.tipo}</span>
+          <span style="font-family:var(--mono);font-size:10px;color:var(--muted2);letter-spacing:.03em">${nombre}</span>
+          <span style="font-family:var(--mono);font-weight:700">${r.cur}/${r.tgt}</span>
+          <span style="font-family:var(--mono);font-weight:700;color:${bc}">${r.pct}%</span>
+          <span class="meta-action-badge ${r.actionCls}">${r.action}</span>
+        </div>`;
+      }).join('')}
+    </div>
+    <div style="margin-top:12px;padding:12px 16px;background:var(--s2);border:1px solid var(--border);border-radius:10px;font-size:12px;color:var(--muted);line-height:1.7">
+      💡 <strong style="color:var(--text)">Nombre sugerido para tus conjuntos:</strong>
+      <code style="background:var(--s3);padding:2px 6px;border-radius:4px">E0_M_18-29</code> · 
+      <code style="background:var(--s3);padding:2px 6px;border-radius:4px">E0_F_30+</code> · 
+      <code style="background:var(--s3);padding:2px 6px;border-radius:4px">E1_M_18-29</code> …
     </div>`;
 }
 
@@ -3050,12 +3082,15 @@ function renderEstrato4(){
   const byProv = {};
   e4cases.forEach(c => {
     const prov = c.prov || '(sin provincia)';
-    const depto = c.depto || '(sin depto)';
+    // Only use depto if it has a real value
+    const depto = (c.depto && c.depto.trim() && c.depto !== '-' && c.depto !== '–') ? c.depto : null;
+    const deptoKey = depto || '(sin departamento)';
     if(!byProv[prov]) byProv[prov] = {};
-    if(!byProv[prov][depto]) byProv[prov][depto] = { masc:0, fem:0, total:0 };
-    byProv[prov][depto].total++;
-    if(c.gen==='Masculino') byProv[prov][depto].masc++;
-    else if(c.gen==='Femenino') byProv[prov][depto].fem++;
+    if(!byProv[prov][deptoKey]) byProv[prov][deptoKey] = { masc:0, fem:0, joven:0, total:0 };
+    byProv[prov][deptoKey].total++;
+    if(c.gen==='Masculino') byProv[prov][deptoKey].masc++;
+    else if(c.gen==='Femenino') byProv[prov][deptoKey].fem++;
+    if(parseInt(c.edad)<=29) byProv[prov][deptoKey].joven++;
   });
 
   const kpiEl = document.getElementById('e4-kpis');
@@ -3114,7 +3149,8 @@ function renderEstrato4(){
           <th style="text-align:center;padding:8px 12px;font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border)">Total</th>
           <th style="text-align:center;padding:8px 12px;font-size:10px;font-weight:700;text-transform:uppercase;color:var(--blue);border-bottom:1px solid var(--border)">Masc.</th>
           <th style="text-align:center;padding:8px 12px;font-size:10px;font-weight:700;text-transform:uppercase;color:var(--purple);border-bottom:1px solid var(--border)">Fem.</th>
-          <th style="text-align:left;padding:8px 16px;font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border)">Dist. en provincia</th>
+          <th style="text-align:center;padding:8px 12px;font-size:10px;font-weight:700;text-transform:uppercase;color:var(--amber);border-bottom:1px solid var(--border)">Jóvenes</th>
+          <th style="text-align:left;padding:8px 16px;font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);border-bottom:1px solid var(--border)">Dist.</th>
         </tr></thead>
         <tbody>
           ${deptoEntries.map(([depto,d],i)=>{
@@ -3124,6 +3160,7 @@ function renderEstrato4(){
               <td style="padding:9px 12px;text-align:center;font-family:var(--mono);font-weight:700;color:var(--green)">${d.total}</td>
               <td style="padding:9px 12px;text-align:center;font-family:var(--mono);color:var(--blue)">${d.masc}</td>
               <td style="padding:9px 12px;text-align:center;font-family:var(--mono);color:var(--purple)">${d.fem}</td>
+              <td style="padding:9px 12px;text-align:center;font-family:var(--mono);color:var(--amber)">${d.joven||0}</td>
               <td style="padding:9px 16px">
                 <div style="display:flex;align-items:center;gap:8px">
                   <div style="flex:1;background:var(--s3);border-radius:3px;height:5px;overflow:hidden;min-width:80px">
