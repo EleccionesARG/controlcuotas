@@ -449,6 +449,7 @@ body.observer-mode .observer-badge{display:inline-block}
     <button class="nav-btn" data-p="meta"><span class="nav-icon">⬡</span>Pauta Meta</button>
     <button class="nav-btn" data-p="velocidad"><span class="nav-icon">◎</span>Velocidad</button>
     <button class="nav-btn" data-p="casos"><span class="nav-icon">⊞</span>Casos</button>
+    <button class="nav-btn" data-p="cargar"><span class="nav-icon">↑</span>Cargar CSV</button>
     <button class="nav-btn" style="color:var(--muted);font-size:11px" onclick="volverHome()"><span class="nav-icon">←</span>Volver</button>
   </div>
 
@@ -503,6 +504,8 @@ body.observer-mode .observer-badge{display:inline-block}
     <button class="btn btn-g" style="font-size:12px;padding:7px 14px" id="dsb-start-btn" onclick="dashSyncStart()">▶ Iniciar sync</button>
     <button class="btn btn-w" style="font-size:12px;padding:7px 14px" id="dsb-stop-btn" onclick="dashSyncStop()" style="display:none">■ Detener</button>
     <button class="btn btn-w" style="font-size:12px;padding:7px 12px" onclick="dashSyncNow()" title="Sincronizar ahora">⟳</button>
+    <div style="width:1px;height:20px;background:var(--border);margin:0 2px"></div>
+    <button class="btn btn-w" style="font-size:12px;padding:7px 14px" onclick="goPanel('cargar')" title="Cargar casos desde CSV manualmente">↑ CSV</button>
   </div>
 
   <!-- KPI -->
@@ -585,8 +588,12 @@ body.observer-mode .observer-badge{display:inline-block}
 
 <!-- ══ CARGAR DATOS ══ -->
 <div id="p-cargar" class="panel">
-  <div class="pg-head"><div class="pg-title">Cargar datos</div><div class="pg-sub">Importá el export de SurveyMonkey</div></div>
+  <div class="pg-head">
+    <div><div class="pg-title">Cargar CSV</div><div class="pg-sub" id="cargar-sub">Importá el export de SurveyMonkey</div></div>
+    <button class="btn btn-w" onclick="goPanel('dashboard')" style="display:none" id="btn-ir-dash">← Volver al dashboard</button>
+  </div>
 
+  <!-- Muestra activa -->
   <div class="card">
     <div class="card-hd">Muestra activa</div>
     <div id="cargar-muestra-info">
@@ -594,18 +601,44 @@ body.observer-mode .observer-badge{display:inline-block}
     </div>
   </div>
 
+  <!-- Modo de carga -->
+  <div class="card" style="margin-bottom:0">
+    <div class="card-hd">Modo de carga</div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:8px">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:10px 16px;background:var(--s2);border:2px solid var(--green);border-radius:10px;flex:1;min-width:200px">
+        <input type="radio" name="csv-mode" value="replace" checked style="accent-color:var(--green)" onchange="this.closest('label').style.borderColor='var(--green)';document.getElementById('lbl-append').style.borderColor='var(--border)'">
+        <div>
+          <div style="font-weight:700;font-size:13px">↺ Reemplazar todo</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:2px">Borra los casos actuales y carga el CSV completo. Usá cuando exportás todo desde SurveyMonkey.</div>
+        </div>
+      </label>
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:10px 16px;background:var(--s2);border:2px solid var(--border);border-radius:10px;flex:1;min-width:200px" id="lbl-append">
+        <input type="radio" name="csv-mode" value="append" style="accent-color:var(--blue)" onchange="document.getElementById('lbl-append').style.borderColor='var(--blue)';document.querySelector('[name=csv-mode][value=replace]').closest('label').style.borderColor='var(--border)'">
+        <div>
+          <div style="font-weight:700;font-size:13px">＋ Agregar casos nuevos</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:2px">Solo agrega casos que no existen aún (deduplicados por ID). Útil para sumar casos manualmente sin perder los ya cargados.</div>
+        </div>
+      </label>
+    </div>
+    <!-- Casos actuales -->
+    <div id="cargar-casos-actuales" style="margin-top:12px;font-size:12px;color:var(--muted);display:none">
+      <span id="cargar-casos-count"></span>
+    </div>
+  </div>
+
+  <!-- Drop zone -->
   <div class="card" id="sv-card">
-    <div class="card-hd">Datos de la encuesta (SurveyMonkey)</div>
+    <div class="card-hd">Archivo CSV de SurveyMonkey</div>
     <div class="dz" id="dz-sv"
       ondragover="dzOver(event,'dz-sv')" ondragleave="dzOut('dz-sv')" ondrop="dzDrop(event,'sv')"
       onclick="document.getElementById('fi-sv').click()">
       <input type="file" id="fi-sv" accept=".csv,.tsv,.txt" onchange="fileLoad(event,'sv')">
-      <div style="font-size:24px;margin-bottom:8px">↑</div>
-      <div>Arrastrá el CSV de SurveyMonkey o <strong style="color:var(--green)">hacé clic aquí</strong></div>
+      <div style="font-size:28px;margin-bottom:8px">↑</div>
+      <div style="font-size:14px;font-weight:600">Arrastrá el CSV o <strong style="color:var(--green)">hacé clic aquí</strong></div>
       <div style="font-size:11px;margin-top:5px;color:var(--muted2)">También podés pegar el contenido directamente abajo</div>
     </div>
-    <div style="margin:10px 0;text-align:center;font-size:11px;color:var(--muted)">— o pegá desde Google Sheets —</div>
-    <textarea id="ta-sv" style="width:100%;min-height:90px;resize:vertical;background:var(--s2);border:1px solid var(--b2);border-radius:8px;color:var(--text);font-family:var(--mono);font-size:12px;padding:10px;outline:none" placeholder="Ctrl+A, Ctrl+C en Google Sheets → Ctrl+V acá" oninput="pasteHandle(this,'sv')"></textarea>
+    <div style="margin:10px 0;text-align:center;font-size:11px;color:var(--muted)">— o pegá desde Google Sheets / SurveyMonkey —</div>
+    <textarea id="ta-sv" style="width:100%;min-height:80px;resize:vertical;background:var(--s2);border:1px solid var(--b2);border-radius:8px;color:var(--text);font-family:var(--mono);font-size:12px;padding:10px;outline:none" placeholder="Ctrl+A → Ctrl+C en Google Sheets → Ctrl+V acá" oninput="pasteHandle(this,'sv')"></textarea>
 
     <span class="us-badge" id="us-sv">
       <span style="color:var(--green)">✓</span>
@@ -620,7 +653,7 @@ body.observer-mode .observer-badge{display:inline-block}
       <p style="font-size:12px;color:var(--muted);margin-bottom:10px">SurveyMonkey genera una columna por provincia — indicá cuál corresponde a cada una.</p>
       <div id="prov-depto-map" class="col-map-grid"></div>
       <div class="btn-row" style="margin-top:14px">
-        <button class="btn btn-g" onclick="processSurvey()"><span id="btn-proc-txt">✓ Procesar y cargar</span></button>
+        <button class="btn btn-g" style="padding:9px 20px" onclick="processSurvey()"><span id="btn-proc-txt">✓ Procesar y cargar</span></button>
         <button class="btn btn-w" onclick="debugProvs()">🔍 Ver provincias</button>
         <span id="sv-proc-msg" style="font-size:12px;color:var(--muted)"></span>
       </div>
@@ -906,21 +939,38 @@ body.observer-mode .observer-badge{display:inline-block}
 <!-- ══ META ══ -->
 <div id="p-meta" class="panel">
   <div class="pg-head">
-    <div><div class="pg-title">Pauta Meta</div><div class="pg-sub">Conjuntos de anuncios recomendados según avance de cuotas</div></div>
-    <button class="btn btn-w" onclick="renderMeta()">↺ Actualizar</button>
-  </div>
-  <div class="card" style="margin-bottom:14px">
-    <div class="card-hd">Cómo usar este panel</div>
-    <p style="font-size:12.5px;color:var(--muted);line-height:1.8">
-      El sistema analiza el avance de cada cuota y sugiere qué conjuntos de anuncios pausar o reducir en Meta Ads.
-      Agrupá tus conjuntos por <strong style="color:var(--text)">estrato × grupo de edad × género</strong> y usá los mismos nombres acá para que coincidan.
-    </p>
-    <div style="margin-top:12px">
-      <label style="font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:6px">Umbral para "reducir" (%)</label>
-      <input type="number" id="meta-threshold" value="80" min="50" max="99" style="background:var(--s2);border:1px solid var(--b2);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:13px;padding:6px 10px;width:80px;outline:none" oninput="renderMeta()">
-      <span style="font-size:12px;color:var(--muted);margin-left:8px">Por encima de este % → reducir alcance</span>
+    <div><div class="pg-title">Pauta Meta</div><div class="pg-sub" id="meta-sub">Conjuntos de anuncios recomendados según avance de cuotas</div></div>
+    <div class="btn-row">
+      <button class="btn btn-w" onclick="fetchMetaAdsets()">⟳ Actualizar Meta</button>
+      <button class="btn btn-w" onclick="renderMeta()">↺ Recalcular</button>
     </div>
   </div>
+
+  <!-- Live status bar -->
+  <div id="meta-live-bar" style="display:none;background:var(--s2);border:1px solid var(--border);border-radius:10px;padding:10px 16px;margin-bottom:14px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+    <div id="meta-live-dot" style="width:8px;height:8px;border-radius:50%;background:var(--muted2);flex-shrink:0"></div>
+    <span id="meta-live-label" style="font-size:12px;font-weight:600;flex:1">Sin datos de Meta</span>
+    <span id="meta-live-time" style="font-family:var(--mono);font-size:10px;color:var(--muted2)"></span>
+  </div>
+
+  <div class="card" style="margin-bottom:14px">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap">
+      <div>
+        <div class="card-hd">Configuración</div>
+        <p style="font-size:12px;color:var(--muted);line-height:1.7;margin:6px 0 0">
+          Nombrá tus conjuntos en Meta como <code style="background:var(--s3);padding:1px 5px;border-radius:3px">E0_M_18-29</code>, <code style="background:var(--s3);padding:1px 5px;border-radius:3px">E0_F_30+</code> para que el panel los detecte automáticamente.<br>
+          El sistema cruza el nombre del conjunto con el estrato, género y segmento de edad.
+        </p>
+      </div>
+      <div style="flex-shrink:0">
+        <label style="font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:6px">Umbral "reducir" (%)</label>
+        <input type="number" id="meta-threshold" value="80" min="50" max="99"
+          style="background:var(--s2);border:1px solid var(--b2);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:13px;padding:6px 10px;width:80px;outline:none"
+          oninput="renderMeta()">
+      </div>
+    </div>
+  </div>
+
   <div id="meta-table-wrap"></div>
 </div>
 
@@ -1751,31 +1801,74 @@ function processSurvey(){
   const provColMap={};
   document.querySelectorAll('[data-prov]').forEach(sel=>{if(sel.value!=='')provColMap[sel.dataset.prov]=parseInt(sel.value);});
 
-  let added=0,noEst=0,excluded=0;
-  APP.cases=[];
-  APP.nextId=1;
+  const modeEl = document.querySelector('input[name="csv-mode"]:checked');
+  const mode = modeEl ? modeEl.value : 'replace';
+
+  let added=0, noEst=0, excluded=0, dupes=0;
+  const newCases=[];
+  let nextId = APP.nextId || 1;
 
   _svRows.slice(1).forEach(row=>{
-    const gen=(row[genIdx]||'').trim(); const edadRaw=row[edadIdx]; const prov=(row[provIdx]||'').trim();
-    if(!gen||!edadRaw)return;
-    if(filterColIdx>=0){ const resp=(row[filterColIdx]||'').trim().toLowerCase(); if(resp===filterExclude||resp===''){excluded++;return;} }
-    const edad=parseInt(edadRaw); if(isNaN(edad))return;
+    const gen=(row[genIdx]||'').trim();
+    const edadRaw=row[edadIdx];
+    const prov=(row[provIdx]||'').trim();
+    if(!gen||!edadRaw) return;
+    if(filterColIdx>=0){
+      const resp=(row[filterColIdx]||'').trim().toLowerCase();
+      if(resp===filterExclude||resp===''){excluded++;return;}
+    }
+    const edad=parseInt(edadRaw); if(isNaN(edad)) return;
     let depto='';
     if(provColMap[prov]!==undefined) depto=(row[provColMap[prov]]||'').trim();
     if(!depto){ for(const[p,ci]of Object.entries(provColMap)){ if(norm(p)===norm(prov)&&(row[ci]||'').trim()){depto=(row[ci]||'').trim();break;} } }
-    const _estLookup=lookupEst(prov,depto); const estrato=(_estLookup!==null&&_estLookup!==undefined)?String(_estLookup):'?';
+    const _estLookup=lookupEst(prov,depto,m);
+    const estrato=(_estLookup!==null&&_estLookup!==undefined)?String(_estLookup):'?';
     const ageGrp=getAgeGrp(edad,m.ageBounds,m.ageGroups);
     const key=ck(gen,ageGrp,estrato);
-    const id=idIdx>=0?(row[idIdx]||`R${String(APP.nextId).padStart(4,'0')}`).trim():`R${String(APP.nextId).padStart(4,'0')}`;
-    APP.cases.push({id,gen,edad,ageGrp,prov,depto,estrato,key,ts:Date.now()});
-    APP.nextId++;
-    if(estrato==='?')noEst++;
+    const id=idIdx>=0?(row[idIdx]||`R${String(nextId).padStart(4,'0')}`).trim():`R${String(nextId).padStart(4,'0')}`;
+    newCases.push({id,gen,edad,ageGrp,prov,depto,estrato,key,ts:Date.now()});
+    nextId++;
+    if(estrato==='?') noEst++;
     added++;
   });
 
-  document.getElementById('sv-proc-msg').textContent=`✓ ${added} casos válidos · ${excluded} excluidos · ${noEst} sin estrato`;
-  const btn=document.getElementById('btn-proc-txt'); if(btn)btn.textContent='↺ Reprocesar';
-  save(); renderAll();
+  let finalCases;
+  if(mode==='append'){
+    // Deduplicate: keep existing + add only new IDs
+    const existingIds = new Set((APP.cases||[]).map(c=>String(c.id)));
+    const toAdd = newCases.filter(c=>{ if(existingIds.has(String(c.id))){ dupes++; return false; } return true; });
+    finalCases = [...(APP.cases||[]), ...toAdd];
+    added = toAdd.length;
+  } else {
+    finalCases = newCases;
+  }
+
+  APP.cases = finalCases;
+  APP.nextId = nextId;
+
+  // Update active survey
+  if(APP.currentSurveyIdx != null && APP.activeSurveys?.[APP.currentSurveyIdx]){
+    const sv = APP.activeSurveys[APP.currentSurveyIdx];
+    sv.cases = [...APP.cases];
+    sv._rawCases = null;
+  }
+
+  // Result message
+  let msg = `<span style="color:var(--green)">✓ ${added} casos ${mode==='append'?'agregados':'cargados'}</span>`;
+  if(excluded) msg += ` · ${excluded} excluidos`;
+  if(dupes)    msg += ` · <span style="color:var(--muted)">${dupes} ya existían</span>`;
+  if(noEst)    msg += ` · <span style="color:var(--amber)">${noEst} sin estrato</span>`;
+  msg += ` · <strong style="color:var(--text)">Total: ${APP.cases.length}</strong>`;
+
+  const msgEl=document.getElementById('sv-proc-msg');
+  if(msgEl) msgEl.innerHTML = msg;
+  const btn=document.getElementById('btn-proc-txt');
+  if(btn) btn.textContent = mode==='append' ? '＋ Agregar más' : '↺ Reprocesar';
+
+  save();
+  renderAll();
+  // Go back to dashboard
+  setTimeout(()=>{ if(APP.currentSurveyIdx!=null) goPanel('dashboard'); }, 800);
 }
 
 function debugProvs(){
@@ -2859,10 +2952,31 @@ function goPanel(p){
   if(p==='provincias') renderProvincias();
   if(p==='estrato4') renderEstrato4();
   if(p==='velocidad') renderVelocidad();
-  if(p==='meta') renderMeta();
+  if(p==='meta'){ renderMeta(); if(!_metaAdsets) fetchMetaAdsets(); }
   if(p==='muestras') renderMuestras();
   if(p==='encuestas') renderEncuestas();
   if(p==='sync') populateSMMusetraSelect();
+  if(p==='cargar'){
+    updateCargarMuestraInfo();
+    // Show back button if inside a survey
+    const btn = document.getElementById('btn-ir-dash');
+    if(btn) btn.style.display = APP.currentSurveyIdx != null ? 'inline-flex' : 'none';
+    // Update sub
+    const sub = document.getElementById('cargar-sub');
+    const sv = APP.currentSurveyIdx != null ? (APP.activeSurveys||[])[APP.currentSurveyIdx] : null;
+    if(sub && sv) sub.textContent = `Cargando para: ${sv.smTitle}`;
+    else if(sub) sub.textContent = 'Importá el export de SurveyMonkey';
+    // Show current case count
+    const countEl = document.getElementById('cargar-casos-actuales');
+    const countTxt = document.getElementById('cargar-casos-count');
+    const cur = APP.cases?.length || 0;
+    if(countEl && cur > 0){
+      countEl.style.display = 'block';
+      countTxt.innerHTML = `Casos cargados actualmente: <strong style="color:var(--text)">${cur}</strong> — El modo <em>Agregar</em> los conserva; el modo <em>Reemplazar</em> los borra.`;
+    } else if(countEl){
+      countEl.style.display = 'none';
+    }
+  }
 }
 
 // ══════════════════════════════════════════
@@ -3003,6 +3117,49 @@ function renderVelocidad(){
 }
 
 // ══════════════════════════════════════════
+// META ADS — live adsets cache
+// ══════════════════════════════════════════
+let _metaAdsets = null;  // [{id, name, status, effectiveStatus}]
+let _metaFetchedAt = null;
+
+async function fetchMetaAdsets(){
+  const url = _smServerUrl;
+  if(!url){ 
+    document.getElementById('meta-live-label').textContent = '⚠ Configurá el servidor Railway primero';
+    return; 
+  }
+  const bar   = document.getElementById('meta-live-bar');
+  const dot   = document.getElementById('meta-live-dot');
+  const label = document.getElementById('meta-live-label');
+  const time  = document.getElementById('meta-live-time');
+  if(bar) bar.style.display = 'flex';
+  if(dot) dot.style.background = 'var(--amber)';
+  if(label) label.textContent = 'Consultando Meta Ads...';
+
+  try {
+    const r = await fetch(`${url}/meta/adsets`);
+    const data = await r.json();
+    if(data.ok && data.adsets){
+      _metaAdsets = data.adsets;
+      _metaFetchedAt = data.fetchedAt || Date.now();
+      const active = data.adsets.filter(a=>a.effectiveStatus==='ACTIVE').length;
+      const paused = data.adsets.filter(a=>a.effectiveStatus==='PAUSED').length;
+      if(dot) dot.style.background = 'var(--green)';
+      if(label) label.textContent = `${data.adsets.length} conjuntos · ${active} activos · ${paused} pausados`;
+      const d = new Date(_metaFetchedAt);
+      if(time) time.textContent = 'Actualizado: ' + d.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
+      renderMeta();
+    } else {
+      if(dot) dot.style.background = 'var(--red)';
+      if(label) label.textContent = '✗ Error: ' + (data.error || 'Respuesta inválida');
+    }
+  } catch(e){
+    if(dot) dot.style.background = 'var(--red)';
+    if(label) label.textContent = '✗ No se pudo conectar con Railway';
+  }
+}
+
+// ══════════════════════════════════════════
 // META ADS PANEL — 2 conjuntos por estrato: Jóvenes 18-29 vs Adultos 30+
 // ══════════════════════════════════════════
 function renderMeta(){
@@ -3057,13 +3214,32 @@ function renderMeta(){
         </div>`).join('')}
     </div>
     <div style="background:var(--s1);border:1px solid var(--border);border-radius:12px;overflow:hidden">
-      <div style="display:grid;grid-template-columns:80px 110px 100px 140px 80px 80px 110px;padding:10px 16px;background:var(--s2);border-bottom:1px solid var(--border);font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);gap:8px">
+      <div style="display:grid;grid-template-columns:80px 110px 100px 140px 80px 80px 110px 110px;padding:10px 16px;background:var(--s2);border-bottom:1px solid var(--border);font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);gap:8px">
         <span>Estrato</span><span>Género</span><span>Segmento</span><span>Nombre</span><span>Casos</span><span>%</span><span>Acción</span>
       </div>
       ${adsets.map((r,i)=>{
         const nombre=`E${r.e}_${r.g==='Masculino'?'M':'F'}_${r.label}`;
         const bc=r.action==='PAUSAR'?'var(--red)':r.action==='REDUCIR'?'var(--amber)':'var(--green)';
-        return`<div style="display:grid;grid-template-columns:80px 110px 100px 140px 80px 80px 110px;gap:8px;align-items:center;padding:11px 16px;border-bottom:1px solid var(--border);${i%2===1?'background:rgba(255,255,255,.012)':''}">
+        // Match with live Meta adsets by name convention
+        const metaMatch = _metaAdsets ? _metaAdsets.find(a => {
+          const an = a.name.toLowerCase().replace(/\s/g,'');
+          const e0 = `e${r.e}`;
+          const g0 = r.g==='Masculino'?'_m_':'_f_';
+          const seg = r.label==='18-29'?'18':'30';
+          return an.includes(e0) && an.includes(g0.replace(/_/g,'')) && an.includes(seg);
+        }) : null;
+        const metaStatus = metaMatch ? metaMatch.effectiveStatus : null;
+        const metaBadge = metaStatus === 'ACTIVE'
+          ? `<span style="background:rgba(62,207,142,.15);color:var(--green);font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px">● ACTIVO</span>`
+          : metaStatus === 'PAUSED'
+          ? `<span style="background:rgba(224,90,90,.12);color:var(--red);font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px">⏸ PAUSADO</span>`
+          : _metaAdsets
+          ? `<span style="background:var(--s3);color:var(--muted2);font-size:11px;padding:3px 9px;border-radius:20px">? no hallado</span>`
+          : `<span style="font-size:11px;color:var(--muted2)">—</span>`;
+
+        // Alert if Meta status conflicts with recommendation
+        const conflict = (r.action==='PAUSAR' && metaStatus==='ACTIVE') || (r.action==='ACTIVO' && metaStatus==='PAUSED');
+        return`<div style="display:grid;grid-template-columns:80px 110px 100px 140px 80px 80px 110px 110px;gap:8px;align-items:center;padding:11px 16px;border-bottom:1px solid var(--border);${conflict?'background:rgba(240,166,46,.05);':i%2===1?'background:rgba(255,255,255,.012)':''}">
           <span style="font-family:var(--mono);font-weight:700">Est. ${r.e}</span>
           <span style="font-size:13px">${r.g}</span>
           <span style="font-size:12px;color:var(--muted)">${r.tipo}</span>
@@ -3071,6 +3247,7 @@ function renderMeta(){
           <span style="font-family:var(--mono);font-weight:700">${r.cur}/${r.tgt}</span>
           <span style="font-family:var(--mono);font-weight:700;color:${bc}">${r.pct}%</span>
           <span class="meta-action-badge ${r.actionCls}">${r.action}</span>
+          ${metaBadge}
         </div>`;
       }).join('')}
     </div>
