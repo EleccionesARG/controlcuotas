@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -1832,10 +1833,11 @@ function processSurvey(){
 
   let finalCases;
   if(mode==='append'){
-    // Deduplicate: keep existing + add only new IDs
-    const existingIds = new Set((APP.cases||[]).map(c=>String(c.id)));
+    // Deduplicate: always read from the active survey, not APP.cases (stale risk)
+    const _svCases = getCurrentSurvey()?.cases || APP.cases || [];
+    const existingIds = new Set(_svCases.map(c=>String(c.id)));
     const toAdd = newCases.filter(c=>{ if(existingIds.has(String(c.id))){ dupes++; return false; } return true; });
-    finalCases = [...(APP.cases||[]), ...toAdd];
+    finalCases = [..._svCases, ...toAdd];
     added = toAdd.length;
   } else {
     finalCases = newCases;
@@ -1922,9 +1924,11 @@ function renderDash(){
   const quotas = sv ? (sv.quotas||{}) : (APP.quotas||{});
   const cases  = sv ? (sv.cases||[])  : (APP.cases||[]);
 
-  // Sync APP so countCell works
-  APP.quotas = quotas;
-  APP.cases  = cases;
+  // Keep APP in sync with active survey so helper functions (countCell etc.) work correctly
+  if(sv){
+    APP.quotas = quotas;
+    APP.cases  = cases;
+  }
 
   const keys = Object.keys(quotas).filter(k=>quotas[k]>0);
   const totTgt = Object.values(quotas).reduce((a,b)=>a+b,0);
@@ -2196,16 +2200,36 @@ function renderTable(){
 }
 
 function renderSidebar(){
-  const tot=APP.cases.length;
-  const tgt=Object.values(APP.quotas).reduce((a,b)=>a+b,0);
-  const pct=tgt>0?Math.round(tot/tgt*100):null;
+  // Always read from the active survey — never from the shared global
+  const sv = getCurrentSurvey();
+  if(!sv){ 
+    const el=id=>document.getElementById(id);
+    if(el('sb-casos'))  el('sb-casos').textContent  = '—';
+    if(el('sb-avance')) el('sb-avance').textContent = '—';
+    return;
+  }
+  const cases  = sv.cases  || [];
+  const quotas = sv.quotas || {};
+  const tot = cases.length;
+  const tgt = Object.values(quotas).reduce((a,b)=>a+b,0);
+  const pct = tgt>0?Math.round(tot/tgt*100):null;
   const el=id=>document.getElementById(id);
-  if(el('sb-casos'))el('sb-casos').textContent=tot.toLocaleString('es-AR');
-  if(el('sb-avance'))el('sb-avance').textContent=pct!=null?pct+'%':'—';
+  if(el('sb-casos'))  el('sb-casos').textContent = tot.toLocaleString('es-AR');
+  if(el('sb-avance')) el('sb-avance').textContent = pct!=null?pct+'%':'—';
 }
 
-function rmCase(i){APP.cases.splice(i,1);save();renderAll();}
-function clearCases(){if(!confirm('¿Borrar todos los casos?'))return;APP.cases=[];APP.nextId=1;save();renderAll();}
+function rmCase(i){
+  APP.cases.splice(i,1);
+  // Write back to the active survey so changes persist per-survey
+  const sv=getCurrentSurvey(); if(sv) sv.cases=[...APP.cases];
+  save();renderAll();
+}
+function clearCases(){
+  if(!confirm('¿Borrar todos los casos?'))return;
+  APP.cases=[];APP.nextId=1;
+  const sv=getCurrentSurvey(); if(sv){ sv.cases=[]; sv._rawCases=null; }
+  save();renderAll();
+}
 function exportCSV(){
   const rows=[['#','ID','Genero','Edad','GrupoEdad','Nivel1','Nivel2','Estrato','Celda']];
   APP.cases.forEach((c,i)=>rows.push([i+1,c.id,c.gen,c.edad,c.ageGrp,c.prov||'',c.depto||'',c.estrato,`${c.gen}/${c.ageGrp}/E${c.estrato}`]));
@@ -2789,8 +2813,15 @@ function enterSurvey(idx){
 
 function volverHome(){
   APP.currentSurveyIdx = null;
+  // Clear shared globals so sidebar/dashboard don't show stale data from last survey
+  APP.cases  = [];
+  APP.quotas = {};
   const navSec = document.getElementById('nav-encuesta-section');
   if(navSec) navSec.style.display = 'none';
+  // Reset sidebar stats
+  const el = id => document.getElementById(id);
+  if(el('sb-casos'))  el('sb-casos').textContent  = '—';
+  if(el('sb-avance')) el('sb-avance').textContent = '—';
   goPanel('home');
 }
 
@@ -2868,25 +2899,41 @@ function processRawCases(rawCases, muestra){
   });
 }
 
-// Firebase listener: rawCases from server → process + update all matching surveys
+// Firebase listener: rawCases from server → update ONLY the matching survey
+// Server MUST send { surveyId: "...", rawCases: [...], lastSync, syncStats }
 function updateSurveyFromFirebase(data){
   if(!data || !APP.activeSurveys) return;
   if(!data.rawCases && !data.cases) { renderHome(); return; }
 
+  // The server must include surveyId so we know which survey to update.
+  // If absent (legacy), we fall back to updating only the one active survey.
+  const targetId = data.surveyId ? String(data.surveyId) : null;
+
+  let updatedCurrent = false;
+
   APP.activeSurveys.forEach(sv => {
+    // ★ CORE ISOLATION: skip surveys that don't match the incoming surveyId
+    if(targetId && String(sv.smSurveyId) !== targetId) return;
+
     if(data.lastSync)  sv.lastSync  = data.lastSync;
     if(data.syncStats) sv.syncStats = data.syncStats;
+
     if(data.rawCases){
-      sv._rawCases = data.rawCases; // always store originals
+      sv._rawCases = data.rawCases; // store originals per-survey
       const muestra = (APP.muestras||[]).find(m => m.id === sv.muestraId);
       sv.cases = processRawCases(data.rawCases, muestra);
     } else if(data.cases){
       sv.cases = data.cases;
     }
+
+    // Check if this is the currently viewed survey
+    if(APP.currentSurveyIdx != null && APP.activeSurveys[APP.currentSurveyIdx] === sv){
+      updatedCurrent = true;
+    }
   });
 
-  // Refresh currently viewed survey
-  if(APP.currentSurveyIdx != null){
+  // Refresh currently viewed survey only if it was updated
+  if(updatedCurrent && APP.currentSurveyIdx != null){
     const sv = APP.activeSurveys[APP.currentSurveyIdx];
     if(sv){
       APP.cases  = sv.cases  || [];
@@ -3467,6 +3514,11 @@ function renderEstrato4(){
 load();
 if(!APP.activeSurveys) APP.activeSurveys = [];
 if(!APP.surveys) APP.surveys = [];
+// Always start with clean global state — survey data lives in activeSurveys[].cases
+// APP.cases is only a "working copy" populated when entering a specific survey
+APP.cases  = [];
+APP.quotas = {};
+APP.currentSurveyIdx = null;
 // Observer mode via URL param
 (function(){
   const p=new URLSearchParams(window.location.search);
