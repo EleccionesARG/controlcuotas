@@ -446,7 +446,6 @@ body.observer-mode .observer-badge{display:inline-block}
     <button class="nav-btn" data-p="dashboard"><span class="nav-icon">▦</span>Dashboard</button>
     <button class="nav-btn" data-p="provincias"><span class="nav-icon">⊛</span>Provincias</button>
     <button class="nav-btn" data-p="estrato4"><span class="nav-icon">⊟</span>Por Estrato</button>
-    <button class="nav-btn" data-p="meta"><span class="nav-icon">⬡</span>Pauta Meta</button>
     <button class="nav-btn" data-p="velocidad"><span class="nav-icon">◎</span>Velocidad</button>
     <button class="nav-btn" data-p="casos"><span class="nav-icon">⊞</span>Casos</button>
     <button class="nav-btn" data-p="cargar"><span class="nav-icon">↑</span>Cargar CSV</button>
@@ -525,8 +524,12 @@ body.observer-mode .observer-badge{display:inline-block}
   <div id="cost-panel" style="display:none;margin-bottom:14px">
     <div class="card">
       <div class="card-hd">Registro de gastos</div>
-      <div class="frow" style="gap:14px;align-items:flex-end;margin-bottom:16px">
-        <div class="field"><label>Gasto total ($)</label><input type="number" id="cost-total" min="0" placeholder="0" style="width:160px" oninput="updateCost()"></div>
+      <div class="frow" style="gap:14px;align-items:flex-end;margin-bottom:14px">
+        <div class="field">
+          <label>Inversión en pauta ($)</label>
+          <input type="number" id="cost-total" min="0" placeholder="0" style="width:160px" oninput="updateCost()">
+          <div style="font-size:10px;color:var(--muted2);margin-top:2px">Lo que invertís en ads</div>
+        </div>
         <div class="field"><label>Moneda</label>
           <select id="cost-moneda" style="width:90px" onchange="updateCost()">
             <option value="$">$ ARS</option><option value="U$D">U$D</option>
@@ -534,11 +537,47 @@ body.observer-mode .observer-badge{display:inline-block}
         </div>
         <div style="font-size:12px;color:var(--muted);padding-bottom:9px">Actualizado: <span id="cost-fecha">—</span></div>
       </div>
+
+      <!-- Fee Meta + IVA -->
+      <div style="background:var(--s2);border:1px solid var(--border);border-radius:10px;padding:12px 16px;margin-bottom:14px">
+        <div style="font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:10px">Cargas sobre la inversión</div>
+        <div style="display:flex;gap:20px;align-items:center;flex-wrap:wrap">
+          <!-- Fee Meta: siempre activo -->
+          <div style="display:flex;align-items:center;gap:8px">
+            <div style="background:rgba(77,159,255,.12);border:1px solid rgba(77,159,255,.25);border-radius:6px;padding:4px 10px;font-family:var(--mono);font-size:12px;font-weight:600;color:var(--blue)">+8%</div>
+            <div>
+              <div style="font-size:11.5px;font-weight:600">Fee Meta</div>
+              <div style="font-size:10px;color:var(--muted2)">siempre se aplica</div>
+            </div>
+          </div>
+          <!-- Separador -->
+          <div style="width:1px;height:32px;background:var(--border);flex-shrink:0"></div>
+          <!-- IVA toggle -->
+          <div style="display:flex;align-items:center;gap:10px">
+            <label style="position:relative;display:inline-block;width:36px;height:20px;cursor:pointer;flex-shrink:0">
+              <input type="checkbox" id="cost-iva-toggle" onchange="updateCost()" style="opacity:0;width:0;height:0;position:absolute">
+              <span id="cost-iva-slider" style="position:absolute;inset:0;border-radius:20px;background:var(--s4);transition:all .2s;border:1px solid var(--b2)"></span>
+              <span id="cost-iva-knob" style="position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:var(--muted2);transition:all .2s"></span>
+            </label>
+            <div>
+              <div style="font-size:11.5px;font-weight:600">+ IVA 21%</div>
+              <div style="font-size:10px;color:var(--muted2)" id="cost-iva-lbl">no aplica</div>
+            </div>
+          </div>
+          <!-- Multiplicador resultante -->
+          <div style="margin-left:auto;text-align:right">
+            <div style="font-size:10px;color:var(--muted2);margin-bottom:2px">Total cargado</div>
+            <div style="font-family:var(--mono);font-size:20px;font-weight:600;color:var(--amber)" id="cost-total-real">—</div>
+            <div style="font-size:10px;color:var(--muted2)" id="cost-mult-lbl">× 1.08</div>
+          </div>
+        </div>
+      </div>
+
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
         <div style="background:var(--s2);border:1px solid var(--border);border-radius:8px;padding:12px 14px">
           <div style="font-size:9.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:5px">Costo por caso actual</div>
           <div style="font-family:var(--mono);font-size:18px;font-weight:600;color:var(--amber)" id="cost-por-caso">—</div>
-          <div style="font-size:11px;color:var(--muted);margin-top:2px">gasto ÷ casos</div>
+          <div style="font-size:11px;color:var(--muted);margin-top:2px">gasto real ÷ casos</div>
         </div>
         <div style="background:var(--s2);border:1px solid var(--border);border-radius:8px;padding:12px 14px">
           <div style="font-size:9.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin-bottom:5px">Costo estimado total</div>
@@ -935,47 +974,6 @@ body.observer-mode .observer-badge{display:inline-block}
     <div id="vel-bars-wrap" style="padding-top:8px"></div>
   </div>
 </div>
-
-<!-- ══ META ══ -->
-<div id="p-meta" class="panel">
-  <div class="pg-head">
-    <div><div class="pg-title">Pauta Meta</div><div class="pg-sub" id="meta-sub">Conjuntos de anuncios recomendados según avance de cuotas</div></div>
-    <div class="btn-row">
-      <button class="btn btn-w" onclick="fetchMetaAdsets()">⟳ Actualizar Meta</button>
-      <button class="btn btn-w" onclick="renderMeta()">↺ Recalcular</button>
-    </div>
-  </div>
-
-  <!-- Live status bar -->
-  <div id="meta-live-bar" style="display:none;background:var(--s2);border:1px solid var(--border);border-radius:10px;padding:10px 16px;margin-bottom:14px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
-    <div id="meta-live-dot" style="width:8px;height:8px;border-radius:50%;background:var(--muted2);flex-shrink:0"></div>
-    <span id="meta-live-label" style="font-size:12px;font-weight:600;flex:1">Sin datos de Meta</span>
-    <span id="meta-live-time" style="font-family:var(--mono);font-size:10px;color:var(--muted2)"></span>
-  </div>
-
-  <div class="card" style="margin-bottom:14px">
-    <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap">
-      <div>
-        <div class="card-hd">Configuración</div>
-        <p style="font-size:12px;color:var(--muted);line-height:1.7;margin:6px 0 0">
-          Nombrá tus conjuntos en Meta como <code style="background:var(--s3);padding:1px 5px;border-radius:3px">E0_M_18-29</code>, <code style="background:var(--s3);padding:1px 5px;border-radius:3px">E0_F_30+</code> para que el panel los detecte automáticamente.<br>
-          El sistema cruza el nombre del conjunto con el estrato, género y segmento de edad.
-        </p>
-      </div>
-      <div style="flex-shrink:0">
-        <label style="font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:6px">Umbral "reducir" (%)</label>
-        <input type="number" id="meta-threshold" value="80" min="50" max="99"
-          style="background:var(--s2);border:1px solid var(--b2);border-radius:6px;color:var(--text);font-family:var(--mono);font-size:13px;padding:6px 10px;width:80px;outline:none"
-          oninput="renderMeta()">
-      </div>
-    </div>
-  </div>
-
-  <div id="meta-table-wrap"></div>
-</div>
-
-</div><!-- /main -->
-</div><!-- /shell -->
 
 <!-- ══ MODALS ══ -->
 
@@ -2323,29 +2321,59 @@ function renderProvincias(){
 // ══════════════════════════════════════════
 // COST
 // ══════════════════════════════════════════
-function toggleCostPanel(){ const p=document.getElementById('cost-panel'); if(p)p.style.display=p.style.display==='none'?'block':'none'; }
+function toggleCostPanel(){
+  const p=document.getElementById('cost-panel');
+  if(p) p.style.display=p.style.display==='none'?'block':'none';
+}
 function updateCost(){
-  const total=parseFloat(document.getElementById('cost-total')?.value)||0;
+  const base=parseFloat(document.getElementById('cost-total')?.value)||0;
   const moneda=document.getElementById('cost-moneda')?.value||'$';
-  const casos=APP.cases.length, nObj=APP.n||0;
-  APP.cost={total,moneda,fecha:new Date().toLocaleDateString('es-AR')};
+  const ivaOn=document.getElementById('cost-iva-toggle')?.checked||false;
+  const casos=(getCurrentSurvey()?.cases||APP.cases||[]).length;
+  const nObj=getCurrentN?getCurrentN():(APP.n||0);
+
+  // Fee Meta es siempre 8%, IVA 21% opcional
+  const mult = ivaOn ? (1.08 * 1.21) : 1.08;
+  const totalReal = base * mult;
+
+  // Guardar con flags
+  APP.cost={total:base,totalReal,moneda,ivaOn,mult,fecha:new Date().toLocaleDateString('es-AR')};
   save();
+
   const fmt=v=>v>0?`${moneda} ${Math.round(v).toLocaleString('es-AR')}`:'—';
-  const porCaso=casos>0?total/casos:0;
+  const porCaso=casos>0?totalReal/casos:0;
   const estimado=porCaso>0&&nObj>0?porCaso*nObj:0;
   const restante=porCaso>0&&nObj>casos?porCaso*(nObj-casos):0;
+
   const el=id=>document.getElementById(id);
-  if(el('cost-por-caso'))el('cost-por-caso').textContent=fmt(porCaso);
-  if(el('cost-estimado'))el('cost-estimado').textContent=fmt(estimado);
-  if(el('cost-restante'))el('cost-restante').textContent=restante>0?fmt(restante):'✓ Completado';
-  if(el('cost-fecha'))el('cost-fecha').textContent=APP.cost.fecha||'—';
-  if(el('kpi-costo'))el('kpi-costo').textContent=porCaso>0?`${moneda} ${Math.round(porCaso).toLocaleString('es-AR')}`:'—';
+
+  // Toggle visual del IVA
+  const slider=el('cost-iva-slider'), knob=el('cost-iva-knob');
+  if(slider) slider.style.background=ivaOn?'rgba(0,229,160,.3)':'var(--s4)';
+  if(slider) slider.style.borderColor=ivaOn?'var(--green-b)':'var(--b2)';
+  if(knob)   knob.style.background=ivaOn?'var(--green)':'var(--muted2)';
+  if(knob)   knob.style.transform=ivaOn?'translateX(16px)':'translateX(0)';
+  if(el('cost-iva-lbl')) el('cost-iva-lbl').textContent=ivaOn?'incluido':'no aplica';
+
+  // Costo total real con cargas
+  if(el('cost-total-real')) el('cost-total-real').textContent=base>0?fmt(totalReal):'—';
+  const multLabel = ivaOn ? `× ${mult.toFixed(4)} (8% + IVA 21%)` : '× 1.08 (fee Meta)';
+  if(el('cost-mult-lbl')) el('cost-mult-lbl').textContent=multLabel;
+
+  if(el('cost-por-caso'))  el('cost-por-caso').textContent=fmt(porCaso);
+  if(el('cost-estimado'))  el('cost-estimado').textContent=fmt(estimado);
+  if(el('cost-restante'))  el('cost-restante').textContent=restante>0?fmt(restante):'✓ Completado';
+  if(el('cost-fecha'))     el('cost-fecha').textContent=APP.cost.fecha||'—';
+  if(el('kpi-costo'))      el('kpi-costo').textContent=porCaso>0?`${moneda} ${Math.round(porCaso).toLocaleString('es-AR')}`:'—';
 }
 function renderCostWidget(){
   if(!APP.cost)return;
   const el=id=>document.getElementById(id);
-  if(el('cost-total'))el('cost-total').value=APP.cost.total||'';
-  if(el('cost-moneda'))el('cost-moneda').value=APP.cost.moneda||'$';
+  if(el('cost-total'))  el('cost-total').value=APP.cost.total||'';
+  if(el('cost-moneda')) el('cost-moneda').value=APP.cost.moneda||'$';
+  // Restore IVA toggle state
+  const ivaToggle=el('cost-iva-toggle');
+  if(ivaToggle) ivaToggle.checked=APP.cost.ivaOn||false;
   updateCost();
 }
 
@@ -2952,7 +2980,6 @@ function goPanel(p){
   if(p==='provincias') renderProvincias();
   if(p==='estrato4') renderEstrato4();
   if(p==='velocidad') renderVelocidad();
-  if(p==='meta'){ renderMeta(); if(!_metaAdsets) fetchMetaAdsets(); }
   if(p==='muestras') renderMuestras();
   if(p==='encuestas') renderEncuestas();
   if(p==='sync') populateSMMusetraSelect();
@@ -3116,148 +3143,7 @@ function renderVelocidad(){
   }).join('');
 }
 
-// ══════════════════════════════════════════
-// META ADS — live adsets cache
-// ══════════════════════════════════════════
-let _metaAdsets = null;  // [{id, name, status, effectiveStatus}]
-let _metaFetchedAt = null;
 
-async function fetchMetaAdsets(){
-  const url = _smServerUrl;
-  if(!url){ 
-    document.getElementById('meta-live-label').textContent = '⚠ Configurá el servidor Railway primero';
-    return; 
-  }
-  const bar   = document.getElementById('meta-live-bar');
-  const dot   = document.getElementById('meta-live-dot');
-  const label = document.getElementById('meta-live-label');
-  const time  = document.getElementById('meta-live-time');
-  if(bar) bar.style.display = 'flex';
-  if(dot) dot.style.background = 'var(--amber)';
-  if(label) label.textContent = 'Consultando Meta Ads...';
-
-  try {
-    const r = await fetch(`${url}/meta/adsets`);
-    const data = await r.json();
-    if(data.ok && data.adsets){
-      _metaAdsets = data.adsets;
-      _metaFetchedAt = data.fetchedAt || Date.now();
-      const active = data.adsets.filter(a=>a.effectiveStatus==='ACTIVE').length;
-      const paused = data.adsets.filter(a=>a.effectiveStatus==='PAUSED').length;
-      if(dot) dot.style.background = 'var(--green)';
-      if(label) label.textContent = `${data.adsets.length} conjuntos · ${active} activos · ${paused} pausados`;
-      const d = new Date(_metaFetchedAt);
-      if(time) time.textContent = 'Actualizado: ' + d.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
-      renderMeta();
-    } else {
-      if(dot) dot.style.background = 'var(--red)';
-      if(label) label.textContent = '✗ Error: ' + (data.error || 'Respuesta inválida');
-    }
-  } catch(e){
-    if(dot) dot.style.background = 'var(--red)';
-    if(label) label.textContent = '✗ No se pudo conectar con Railway';
-  }
-}
-
-// ══════════════════════════════════════════
-// META ADS PANEL — 2 conjuntos por estrato: Jóvenes 18-29 vs Adultos 30+
-// ══════════════════════════════════════════
-function renderMeta(){
-  const wrap = document.getElementById('meta-table-wrap'); if(!wrap) return;
-  const threshold = parseInt(document.getElementById('meta-threshold')?.value||'80');
-  const cases = APP.cases||[];
-  const quotas = APP.quotas || {};
-  const keys = Object.keys(quotas).filter(k=>quotas[k]>0);
-  if(!keys.length){ wrap.innerHTML='<div class="card" style="color:var(--muted);text-align:center;padding:30px">Activá una muestra para ver las recomendaciones</div>'; return; }
-
-  const m = (typeof getCurrentMuestra==='function') ? getCurrentMuestra() : getActiveMuestra();
-  const estratos = (m?.estratos || [...new Set(keys.map(k=>cParts(k)[2]))]).sort((a,b)=>String(a).localeCompare(String(b),'es',{numeric:true}));
-  const generos = ['Masculino','Femenino'];
-  const ageGroups = m?.ageGroups || [...new Set(keys.map(k=>cParts(k)[1]))];
-  const isJoven = ag => /^18/.test(ag) || ag==='18-29' || ag==='18-30';
-
-  const adsets = [];
-  estratos.forEach(e => {
-    generos.forEach(g => {
-      const jovenAgs  = ageGroups.filter(ag=>isJoven(ag));
-      const adultoAgs = ageGroups.filter(ag=>!isJoven(ag));
-      [{label:'18-29', ags:jovenAgs, tipo:'Jóvenes'},{label:'30+', ags:adultoAgs, tipo:'Adultos'}].forEach(({label,ags,tipo})=>{
-        if(!ags.length) return;
-        const cur = ags.reduce((s,ag)=>s+cases.filter(c=>c.gen===g&&c.ageGrp===ag&&c.estrato===e).length,0);
-        const tgt = ags.reduce((s,ag)=>s+(quotas[`${g}||${ag}||${e}`]||0),0);
-        if(!tgt) return;
-        const pct = Math.round(cur/tgt*100);
-        const allComplete = ags.every(ag=>{ const k=`${g}||${ag}||${e}`; return quotas[k]>0 && cases.filter(x=>x.gen===g&&x.ageGrp===ag&&x.estrato===e).length>=quotas[k]; });
-        let action,actionCls,priority;
-        if(allComplete){action='PAUSAR';actionCls='meta-action-pause';priority=0;}
-        else if(pct>=threshold){action='REDUCIR';actionCls='meta-action-reduce';priority=1;}
-        else{action='ACTIVO';actionCls='meta-action-ok';priority=2;}
-        adsets.push({e,g,tipo,label,cur,tgt,pct,action,actionCls,priority});
-      });
-    });
-  });
-  adsets.sort((a,b)=>a.priority-b.priority||String(a.e).localeCompare(String(b.e),'es',{numeric:true})||a.g.localeCompare(b.g));
-
-  const toPause=adsets.filter(r=>r.action==='PAUSAR').length;
-  const toReduce=adsets.filter(r=>r.action==='REDUCIR').length;
-  const toActive=adsets.filter(r=>r.action==='ACTIVO').length;
-
-  wrap.innerHTML=`
-    <div style="display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap">
-      ${[['PAUSAR',toPause,'var(--red)','rgba(224,90,90,.1)','rgba(224,90,90,.3)'],
-         ['REDUCIR',toReduce,'var(--amber)','rgba(240,166,46,.1)','rgba(240,166,46,.3)'],
-         ['ACTIVOS',toActive,'var(--green)','rgba(62,207,142,.08)','rgba(62,207,142,.2)'],
-         ['CONJUNTOS',adsets.length,'var(--muted)','var(--s2)','var(--border)']
-        ].map(([l,v,c,bg,br])=>`<div style="background:${bg};border:1px solid ${br};border-radius:10px;padding:10px 16px;min-width:110px">
-          <div style="font-family:var(--mono);font-size:22px;font-weight:800;color:${c}">${v}</div>
-          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-top:3px">${l}</div>
-        </div>`).join('')}
-    </div>
-    <div style="background:var(--s1);border:1px solid var(--border);border-radius:12px;overflow:hidden">
-      <div style="display:grid;grid-template-columns:80px 110px 100px 140px 80px 80px 110px 110px;padding:10px 16px;background:var(--s2);border-bottom:1px solid var(--border);font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);gap:8px">
-        <span>Estrato</span><span>Género</span><span>Segmento</span><span>Nombre</span><span>Casos</span><span>%</span><span>Acción</span>
-      </div>
-      ${adsets.map((r,i)=>{
-        const nombre=`E${r.e}_${r.g==='Masculino'?'M':'F'}_${r.label}`;
-        const bc=r.action==='PAUSAR'?'var(--red)':r.action==='REDUCIR'?'var(--amber)':'var(--green)';
-        // Match with live Meta adsets by name convention
-        const metaMatch = _metaAdsets ? _metaAdsets.find(a => {
-          const an = a.name.toLowerCase().replace(/\s/g,'');
-          const e0 = `e${r.e}`;
-          const g0 = r.g==='Masculino'?'_m_':'_f_';
-          const seg = r.label==='18-29'?'18':'30';
-          return an.includes(e0) && an.includes(g0.replace(/_/g,'')) && an.includes(seg);
-        }) : null;
-        const metaStatus = metaMatch ? metaMatch.effectiveStatus : null;
-        const metaBadge = metaStatus === 'ACTIVE'
-          ? `<span style="background:rgba(62,207,142,.15);color:var(--green);font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px">● ACTIVO</span>`
-          : metaStatus === 'PAUSED'
-          ? `<span style="background:rgba(224,90,90,.12);color:var(--red);font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px">⏸ PAUSADO</span>`
-          : _metaAdsets
-          ? `<span style="background:var(--s3);color:var(--muted2);font-size:11px;padding:3px 9px;border-radius:20px">? no hallado</span>`
-          : `<span style="font-size:11px;color:var(--muted2)">—</span>`;
-
-        // Alert if Meta status conflicts with recommendation
-        const conflict = (r.action==='PAUSAR' && metaStatus==='ACTIVE') || (r.action==='ACTIVO' && metaStatus==='PAUSED');
-        return`<div style="display:grid;grid-template-columns:80px 110px 100px 140px 80px 80px 110px 110px;gap:8px;align-items:center;padding:11px 16px;border-bottom:1px solid var(--border);${conflict?'background:rgba(240,166,46,.05);':i%2===1?'background:rgba(255,255,255,.012)':''}">
-          <span style="font-family:var(--mono);font-weight:700">Est. ${r.e}</span>
-          <span style="font-size:13px">${r.g}</span>
-          <span style="font-size:12px;color:var(--muted)">${r.tipo}</span>
-          <span style="font-family:var(--mono);font-size:10px;color:var(--muted2);letter-spacing:.03em">${nombre}</span>
-          <span style="font-family:var(--mono);font-weight:700">${r.cur}/${r.tgt}</span>
-          <span style="font-family:var(--mono);font-weight:700;color:${bc}">${r.pct}%</span>
-          <span class="meta-action-badge ${r.actionCls}">${r.action}</span>
-          ${metaBadge}
-        </div>`;
-      }).join('')}
-    </div>
-    <div style="margin-top:12px;padding:12px 16px;background:var(--s2);border:1px solid var(--border);border-radius:10px;font-size:12px;color:var(--muted);line-height:1.7">
-      💡 <strong style="color:var(--text)">Nombre sugerido para tus conjuntos:</strong>
-      <code style="background:var(--s3);padding:2px 6px;border-radius:4px">E0_M_18-29</code> · 
-      <code style="background:var(--s3);padding:2px 6px;border-radius:4px">E0_F_30+</code> · 
-      <code style="background:var(--s3);padding:2px 6px;border-radius:4px">E1_M_18-29</code> …
-    </div>`;
-}
 
 // ══════════════════════════════════════════
 // ESTRATO 4
