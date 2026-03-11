@@ -1196,6 +1196,56 @@ const DFLT = {
 };
 let APP = {...DFLT};
 
+// ── PROXY: APP.cases y APP.quotas siempre apuntan a la survey activa ──
+// Esto evita que cualquier código que use APP.cases/APP.quotas
+// directamente contamine otras encuestas.
+(function(){
+  let _cases = [], _quotas = {}, _cost = {}, _n = 2500, _warnPct = 80;
+
+  function svOrFallback(key, fallback){
+    const sv = (typeof getCurrentSurvey === 'function') ? getCurrentSurvey() : null;
+    return sv ? (sv[key] !== undefined ? sv[key] : fallback) : fallback;
+  }
+  function setSv(key, val){
+    const sv = (typeof getCurrentSurvey === 'function') ? getCurrentSurvey() : null;
+    if(sv) sv[key] = val;
+    // también actualizar la copia local del fallback
+    if(key==='cases')   _cases   = val;
+    if(key==='quotas')  _quotas  = val;
+    if(key==='cost')    _cost    = val;
+    if(key==='n')       _n       = val;
+    if(key==='warnPct') _warnPct = val;
+  }
+
+  Object.defineProperties(APP, {
+    cases: {
+      get(){ return svOrFallback('cases', _cases); },
+      set(v){ setSv('cases', v); },
+      enumerable: true, configurable: true
+    },
+    quotas: {
+      get(){ return svOrFallback('quotas', _quotas); },
+      set(v){ setSv('quotas', v); },
+      enumerable: true, configurable: true
+    },
+    cost: {
+      get(){ return svOrFallback('cost', _cost); },
+      set(v){ setSv('cost', v); },
+      enumerable: true, configurable: true
+    },
+    n: {
+      get(){ return svOrFallback('n', _n); },
+      set(v){ setSv('n', v); },
+      enumerable: true, configurable: true
+    },
+    warnPct: {
+      get(){ return svOrFallback('warnPct', _warnPct); },
+      set(v){ setSv('warnPct', v); },
+      enumerable: true, configurable: true
+    },
+  });
+})();
+
 function save(){
   try {
     localStorage.setItem('pulsov4', JSON.stringify(APP));
@@ -1903,15 +1953,12 @@ function processSurvey(){
     finalCases = newCases;
   }
 
+  // Con el proxy, asignar a APP.cases ya escribe en sv.cases automáticamente
   APP.cases = finalCases;
   APP.nextId = nextId;
-
-  // Update active survey
-  if(APP.currentSurveyIdx != null && APP.activeSurveys?.[APP.currentSurveyIdx]){
-    const sv = APP.activeSurveys[APP.currentSurveyIdx];
-    sv.cases = [...APP.cases];
-    sv._rawCases = null;
-  }
+  // Limpiar rawCases del server para que no se reescriba encima
+  const _svCSV = getCurrentSurvey();
+  if(_svCSV) _svCSV._rawCases = null;
 
   // Result message
   let msg = `<span style="color:var(--green)">✓ ${added} casos ${mode==='append'?'agregados':'cargados'}</span>`;
@@ -1984,11 +2031,7 @@ function renderDash(){
   const quotas = sv ? (sv.quotas||{}) : (APP.quotas||{});
   const cases  = sv ? (sv.cases||[])  : (APP.cases||[]);
 
-  // Keep APP in sync with active survey so helper functions (countCell etc.) work correctly
-  if(sv){
-    APP.quotas = quotas;
-    APP.cases  = cases;
-  }
+  // APP.cases y APP.quotas son proxies — ya apuntan a sv automáticamente
 
   const keys = Object.keys(quotas).filter(k=>quotas[k]>0);
   const totTgt = Object.values(quotas).reduce((a,b)=>a+b,0);
@@ -2279,15 +2322,14 @@ function renderSidebar(){
 }
 
 function rmCase(i){
+  // APP.cases es proxy — splice modifica sv.cases directamente
   APP.cases.splice(i,1);
-  // Write back to the active survey so changes persist per-survey
-  const sv=getCurrentSurvey(); if(sv) sv.cases=[...APP.cases];
   save();renderAll();
 }
 function clearCases(){
   if(!confirm('¿Borrar todos los casos?'))return;
   APP.cases=[];APP.nextId=1;
-  const sv=getCurrentSurvey(); if(sv){ sv.cases=[]; sv._rawCases=null; }
+  const sv=getCurrentSurvey(); if(sv) sv._rawCases=null;
   save();renderAll();
 }
 function exportCSV(){
@@ -2409,10 +2451,11 @@ function toggleCostPanel(){
   const p=document.getElementById('cost-panel');
   if(p) p.style.display=p.style.display==='none'?'block':'none';
 }
-function getSvCost(){ const sv=getCurrentSurvey(); return sv?sv.cost||{}:APP.cost||{}; }
-function getWarnPct(){ const sv=getCurrentSurvey(); return sv?(sv.warnPct||80):(APP.warnPct||80); }
-function setWarnPct(v){ const sv=getCurrentSurvey(); if(sv) sv.warnPct=v; else APP.warnPct=v; }
-function setSvCost(c){ const sv=getCurrentSurvey(); if(sv) sv.cost=c; else APP.cost=c; }
+// Con el proxy, APP.cost/warnPct ya apuntan a sv — estos helpers son wrappers simples
+function getSvCost(){ return APP.cost || {}; }
+function getWarnPct(){ return APP.warnPct || 80; }
+function setWarnPct(v){ APP.warnPct = v; }
+function setSvCost(c){ APP.cost = c; }
 
 function updateCost(){
   const base=parseFloat(document.getElementById('cost-total')?.value)||0;
@@ -2543,7 +2586,7 @@ function doReset(){
   const delMuestra=document.getElementById('rc-muestra')?.checked;
   if(delCases){
     APP.cases=[];APP.nextId=1;
-    const sv=getCurrentSurvey(); if(sv){ sv.cases=[]; sv._rawCases=null; sv.cost={}; }
+    const sv=getCurrentSurvey(); if(sv){ sv._rawCases=null; sv.cost={}; }
   }
   if(delMuestra){APP.activeMuestraId=null;APP.quotas={};APP.n=2500;APP.warnPct=80;}
   save(); renderAll(); renderMuestras(); closeModal('reset-modal');
@@ -2891,8 +2934,7 @@ function enterSurvey(idx){
     Object.entries(m.distribution).forEach(([k,pct])=>{ sv.quotas[k]=Math.round(pct/100*sv.n); });
   }
 
-  APP.cases  = sv.cases  || [];
-  APP.quotas = sv.quotas || {};
+  // APP.cases/quotas/cost son proxies — apuntan a sv automáticamente al cambiar currentSurveyIdx
 
   const navSec   = document.getElementById('nav-encuesta-section');
   const navLabel = document.getElementById('nav-enc-label');
@@ -2907,9 +2949,7 @@ function enterSurvey(idx){
 
 function volverHome(){
   APP.currentSurveyIdx = null;
-  // Clear shared globals so sidebar/dashboard don't show stale data from last survey
-  APP.cases  = [];
-  APP.quotas = {};
+  // APP.cases/quotas son proxies — cuando currentSurveyIdx=null devuelven [] automáticamente
   const navSec = document.getElementById('nav-encuesta-section');
   if(navSec) navSec.style.display = 'none';
   // Reset sidebar stats
@@ -3062,14 +3102,10 @@ function updateSurveyFromFirebase(data){
   });
 
   // Refresh currently viewed survey only if it was updated
+  // APP.cases/quotas son proxies — ya apuntan a sv automáticamente
   if(updatedCurrent && APP.currentSurveyIdx != null){
-    const sv = APP.activeSurveys[APP.currentSurveyIdx];
-    if(sv){
-      APP.cases  = sv.cases  || [];
-      APP.quotas = sv.quotas || {};
-      renderAll();
-      updateDashSyncBar();
-    }
+    renderAll();
+    updateDashSyncBar();
   }
   if(!matchFound && targetId){
     console.warn(`[updateSurveyFromFirebase] ⚠ No se encontró ninguna encuesta con smSurveyId=${targetId}. IDs activos: [${activeSurveyIds}]`);
@@ -3646,10 +3682,8 @@ function renderEstrato4(){
 load();
 if(!APP.activeSurveys) APP.activeSurveys = [];
 if(!APP.surveys) APP.surveys = [];
-// Always start with clean global state — survey data lives in activeSurveys[].cases
-// APP.cases is only a "working copy" populated when entering a specific survey
-APP.cases  = [];
-APP.quotas = {};
+// APP.cases/quotas/cost/n/warnPct son proxies que apuntan a la survey activa
+// No necesitan limpiarse — cuando currentSurveyIdx=null devuelven defaults automáticamente
 APP.currentSurveyIdx = null;
 // Observer mode via URL param
 (function(){
