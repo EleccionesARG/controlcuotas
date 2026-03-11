@@ -478,6 +478,7 @@ body.observer-mode .observer-badge{display:inline-block}
 
   <div class="nav-sep">Configuración</div>
   <button class="nav-btn" data-p="muestras"><span class="nav-icon">◑</span>Muestras</button>
+  <button class="nav-btn" data-p="nueva-encuesta"><span class="nav-icon">＋</span>Nueva encuesta</button>
   <button class="nav-btn" data-p="sync"><span class="nav-icon">⟳</span>SurveyMonkey</button>
 
   <div class="nav-sep">Archivo</div>
@@ -647,6 +648,111 @@ body.observer-mode .observer-badge{display:inline-block}
     </div>
   </div>
   <div class="home-grid" id="home-enc-grid"></div>
+</div>
+
+
+<!-- ══ NUEVA ENCUESTA ══ -->
+<div id="p-nueva-encuesta" class="panel">
+  <div class="pg-head">
+    <div>
+      <div class="pg-title">Nueva encuesta</div>
+      <div class="pg-sub">Creá una encuesta manualmente o conectala a SurveyMonkey</div>
+    </div>
+  </div>
+
+  <!-- PASO 1: Datos básicos -->
+  <div class="card" id="ne-paso1">
+    <div class="card-hd">1 · Datos básicos</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:10px">
+      <div class="field">
+        <label>Nombre de la encuesta *</label>
+        <input id="ne-nombre" type="text" placeholder="Ej: Consumo Abril 2026" style="width:100%">
+      </div>
+      <div class="field">
+        <label>N objetivo *</label>
+        <input id="ne-n" type="number" min="1" placeholder="Ej: 1500" style="width:100%">
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:10px">
+      <div class="field">
+        <label>Muestra</label>
+        <select id="ne-muestra" style="width:100%">
+          <option value="">— Seleccioná muestra —</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Moneda del presupuesto</label>
+        <select id="ne-moneda" style="width:100%">
+          <option value="$">$ ARS</option>
+          <option value="US$">US$ USD</option>
+          <option value="S/">S/ PEN</option>
+          <option value="CLP$">CLP$ CLP</option>
+        </select>
+      </div>
+    </div>
+    <div style="margin-top:14px" id="ne-muestra-info"></div>
+  </div>
+
+  <!-- PASO 2: Conexión SurveyMonkey (opcional) -->
+  <div class="card" id="ne-paso2">
+    <div class="card-hd" style="display:flex;align-items:center;justify-content:space-between">
+      <span>2 · Conectar a SurveyMonkey <span style="color:var(--muted);font-size:11px;font-weight:400">(opcional)</span></span>
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12px;color:var(--muted)">
+        <input type="checkbox" id="ne-use-sm" onchange="neToggleSM()" style="accent-color:var(--green)">
+        Conectar a SM
+      </label>
+    </div>
+
+    <div id="ne-sm-fields" style="display:none;margin-top:12px">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+        <div class="field">
+          <label>Encuesta en SurveyMonkey</label>
+          <select id="ne-sm-survey" style="width:100%" onchange="neOnSMSurveySelect()">
+            <option value="">— Cargando... —</option>
+          </select>
+          <div style="font-size:10px;color:var(--muted);margin-top:4px" id="ne-sm-survey-meta"></div>
+        </div>
+        <div class="field">
+          <label>Intervalo de sync (min)</label>
+          <input id="ne-interval" type="number" value="15" min="5" max="120" style="width:100%">
+        </div>
+      </div>
+
+      <!-- ColMap rápido -->
+      <div id="ne-colmap-wrap" style="display:none;margin-top:14px">
+        <div style="font-size:11px;color:var(--muted);margin-bottom:10px;text-transform:uppercase;letter-spacing:.08em">Mapeo de columnas</div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px" id="ne-colmap-fields"></div>
+        <div id="ne-depto-section" style="display:none;margin-top:12px">
+          <div style="font-size:11px;color:var(--muted);margin-bottom:8px;text-transform:uppercase;letter-spacing:.08em">Departamento por provincia</div>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px" id="ne-depto-map"></div>
+        </div>
+        <div style="margin-top:10px">
+          <label style="font-size:11px;color:var(--muted)">Filtro de elegibilidad</label>
+          <div style="display:flex;gap:8px;margin-top:4px">
+            <select id="ne-filter-col" style="flex:1">
+              <option value="">(no filtrar)</option>
+            </select>
+            <span style="color:var(--muted);padding:6px 4px;font-size:12px">≠</span>
+            <input id="ne-filter-val" type="text" value="not answered" style="width:140px" placeholder="valor a excluir">
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ACCIONES -->
+  <div style="display:flex;gap:10px;align-items:center;margin-top:4px">
+    <button class="btn btn-g" onclick="neCrear()" id="ne-btn-crear">＋ Crear encuesta</button>
+    <button class="btn btn-w" onclick="neReset()">↺ Limpiar</button>
+    <span id="ne-msg" style="font-size:12px;color:var(--green)"></span>
+  </div>
+
+  <!-- ENCUESTAS EXISTENTES: reconectar SM -->
+  <div class="card" style="margin-top:20px" id="ne-existentes-card">
+    <div class="card-hd">Encuestas activas — conectar a SurveyMonkey</div>
+    <div style="font-size:12px;color:var(--muted);margin-bottom:12px">Seleccioná una encuesta ya creada y conectala a SM cuando tengas API disponible.</div>
+    <div id="ne-existentes-list"></div>
+  </div>
 </div>
 
 <!-- ══ CARGAR DATOS ══ -->
@@ -3198,6 +3304,7 @@ function goPanel(p){
   if(p==='muestras') renderMuestras();
   if(p==='encuestas') renderEncuestas();
   if(p==='sync') populateSMMusetraSelect();
+  if(p==='nueva-encuesta') neInit();
   if(p==='cargar'){
     updateCargarMuestraInfo();
     // Show back button if inside a survey
@@ -3675,6 +3782,294 @@ function renderEstrato4(){
 
   content.innerHTML = html || `<div class="empty-state"><div class="empty-sub">Sin resultados para "${search}"</div></div>`;
 }
+
+
+// ══════════════════════════════════════════
+// MÓDULO: NUEVA ENCUESTA MANUAL
+// ══════════════════════════════════════════
+let _neQuestions = [];
+let _neSMSurveys = [];
+
+function neInit(){
+  // Poblar selector de muestras
+  const sel = document.getElementById('ne-muestra');
+  if(!sel) return;
+  sel.innerHTML = '<option value="">— Seleccioná muestra —</option>' +
+    (APP.muestras||[]).map(m => `<option value="${m.id}">${m.nombre}</option>`).join('');
+  // Info de muestra al cambiar
+  sel.onchange = () => neUpdateMuestraInfo();
+  // Cargar encuestas SM si hay servidor
+  neLoadSMSurveys();
+  // Renderizar lista de existentes
+  neRenderExistentes();
+}
+
+function neUpdateMuestraInfo(){
+  const mId = parseInt(document.getElementById('ne-muestra')?.value);
+  const m = (APP.muestras||[]).find(x => x.id === mId);
+  const el = document.getElementById('ne-muestra-info');
+  if(!el) return;
+  if(!m){ el.innerHTML = ''; return; }
+  const cobLabels = {nacional:'Nacional',provincial:'Provincial',municipal:'Municipal',custom:'Personalizada'};
+  const estratos = [...new Set((m.refTable||[]).map(r=>r.estrato).filter(Boolean))];
+  el.innerHTML = `<div class="al al-g" style="font-size:12px">
+    ✓ <strong>${m.nombre}</strong> · ${cobLabels[m.cobertura]||m.cobertura} · ${estratos.length} estratos · ${m.ageGroups?.join(', ')||'—'}
+  </div>`;
+  // Si hay SM survey seleccionado, rebuild depto map
+  if(_neQuestions.length) neRebuildDeptoMap();
+}
+
+async function neLoadSMSurveys(){
+  const url = _smServerUrl;
+  if(!url) return;
+  try {
+    const r = await fetch(`${url}/surveys`);
+    const data = await r.json();
+    _neSMSurveys = data.surveys || [];
+    const sel = document.getElementById('ne-sm-survey');
+    if(!sel) return;
+    sel.innerHTML = '<option value="">— Seleccioná encuesta —</option>' +
+      _neSMSurveys.map(s => `<option value="${s.id}" data-count="${s.response_count}">${s.title} (${s.response_count} resp.)</option>`).join('');
+  } catch(e){ console.log('No se pudo cargar surveys SM:', e.message); }
+}
+
+function neToggleSM(){
+  const on = document.getElementById('ne-use-sm')?.checked;
+  document.getElementById('ne-sm-fields').style.display = on ? 'block' : 'none';
+  if(on && _neSMSurveys.length === 0) neLoadSMSurveys();
+}
+
+async function neOnSMSurveySelect(){
+  const surveyId = document.getElementById('ne-sm-survey')?.value;
+  const sel = document.getElementById('ne-sm-survey');
+  const meta = document.getElementById('ne-sm-survey-meta');
+  if(!surveyId){ 
+    document.getElementById('ne-colmap-wrap').style.display = 'none';
+    return; 
+  }
+  const opt = sel?.options[sel.selectedIndex];
+  if(meta) meta.textContent = `ID: ${surveyId} · ${opt?.dataset.count||0} respuestas`;
+  
+  // Si el nombre de la encuesta está vacío, pre-llenarlo
+  const nameEl = document.getElementById('ne-nombre');
+  if(nameEl && !nameEl.value && opt?.text){
+    nameEl.value = opt.text.split('(')[0].trim();
+  }
+
+  // Cargar preguntas
+  const url = _smServerUrl; if(!url) return;
+  try {
+    const r = await fetch(`${url}/surveys/${surveyId}/questions`);
+    const data = await r.json();
+    if(data.error) throw new Error(data.error);
+    _neQuestions = data.questions || [];
+    neBuildColMap(_neQuestions);
+    document.getElementById('ne-colmap-wrap').style.display = 'block';
+  } catch(e){ 
+    if(meta) meta.textContent += ' · Error cargando preguntas: ' + e.message;
+  }
+}
+
+function neBuildColMap(questions){
+  const container = document.getElementById('ne-colmap-fields'); 
+  if(!container) return;
+  const mkSel = (id, label, kws) => {
+    const guess = questions.findIndex(q => kws.some(k => norm(q.heading).includes(k)));
+    return `<div class="field"><label style="font-size:11px">${label}</label>
+      <select id="${id}" style="width:100%">
+        <option value="">(ninguna)</option>
+        ${questions.map(q => `<option value="${q.id}" ${q===questions[guess]?'selected':''}>${q.heading}</option>`).join('')}
+      </select></div>`;
+  };
+  container.innerHTML =
+    mkSel('ne-smc-gen',  'Género / Sexo',       ['genero','género','sexo','gender']) +
+    mkSel('ne-smc-edad', 'Edad',                 ['edad','age','años']) +
+    mkSel('ne-smc-prov', 'Provincia / Depto',    ['provincia','province','prov','departamento','depto','region','región']) +
+    mkSel('ne-smc-id',   'ID caso (opcional)',   ['id','respondent']);
+
+  // Filter col
+  const fSel = document.getElementById('ne-filter-col');
+  if(fSel){
+    fSel.innerHTML = '<option value="">(no filtrar)</option>' +
+      questions.map(q => `<option value="${q.id}">${q.heading}</option>`).join('');
+    const fGuess = questions.findIndex(q => ['candidatos','espacio','vot','legislativ'].some(k => norm(q.heading).includes(k)));
+    if(fGuess >= 0) fSel.value = questions[fGuess].id;
+  }
+  neRebuildDeptoMap();
+}
+
+function neRebuildDeptoMap(){
+  const section   = document.getElementById('ne-depto-section');
+  const container = document.getElementById('ne-depto-map');
+  if(!section || !container) return;
+  const mId = parseInt(document.getElementById('ne-muestra')?.value);
+  const m = (APP.muestras||[]).find(x => x.id === mId);
+  if(!m || !m.refTable) { section.style.display='none'; return; }
+  const hasNivel1 = m.refTable.some(r => r.nivel1 && r.nivel1.trim() !== '');
+  if(!hasNivel1) { section.style.display='none'; return; }
+  const provs = [...new Set(m.refTable.map(r => r.nivel1))].filter(Boolean).sort();
+  if(!provs.length) { section.style.display='none'; return; }
+  section.style.display = 'block';
+  const questions = _neQuestions;
+  container.innerHTML = provs.map(prov => {
+    const np = norm(prov).replace(/\s/g,'').substring(0,6);
+    const guess = questions.findIndex(q => norm(q.heading).replace(/\s/g,'').includes(np));
+    return `<div class="field"><label style="font-size:10px">${prov}</label>
+      <select id="ned-${prov.replace(/[^a-zA-Z0-9]/g,'_')}" data-prov="${prov}" style="width:100%;font-size:11px">
+        <option value="">(no tiene)</option>
+        ${questions.map(q => `<option value="${q.id}" ${q===questions[guess]?'selected':''}>${q.heading}</option>`).join('')}
+      </select></div>`;
+  }).join('');
+}
+
+function neGetColMap(){
+  const colMap = {
+    gen:       document.getElementById('ne-smc-gen')?.value  || '',
+    edad:      document.getElementById('ne-smc-edad')?.value || '',
+    prov:      document.getElementById('ne-smc-prov')?.value || '',
+    idCol:     document.getElementById('ne-smc-id')?.value   || '',
+    filterCol: document.getElementById('ne-filter-col')?.value || '',
+    filterVal: document.getElementById('ne-filter-val')?.value || 'not answered',
+    depto: {},
+  };
+  document.querySelectorAll('#ne-depto-map [data-prov]').forEach(sel => {
+    if(sel.value) colMap.depto[sel.dataset.prov] = sel.value;
+  });
+  return colMap;
+}
+
+async function neCrear(){
+  const nombre = document.getElementById('ne-nombre')?.value?.trim();
+  const n      = parseInt(document.getElementById('ne-n')?.value) || 0;
+  const mId    = parseInt(document.getElementById('ne-muestra')?.value) || null;
+  const moneda = document.getElementById('ne-moneda')?.value || '$';
+  const useSM  = document.getElementById('ne-use-sm')?.checked;
+  const msg    = document.getElementById('ne-msg');
+
+  if(!nombre){ if(msg) msg.textContent = '⚠ Nombre requerido'; return; }
+  if(!n)     { if(msg) msg.textContent = '⚠ N objetivo requerido'; return; }
+
+  if(useSM){
+    // Con SM: usar flujo existente addSurveyToHome + startSync
+    const surveyId = document.getElementById('ne-sm-survey')?.value;
+    if(!surveyId){ if(msg) msg.textContent = '⚠ Seleccioná una encuesta SM'; return; }
+    const colMap      = neGetColMap();
+    const interval    = parseInt(document.getElementById('ne-interval')?.value) || 15;
+
+    if(!colMap.gen || !colMap.edad || !colMap.prov){
+      if(msg) msg.textContent = '⚠ Mapeá al menos Género, Edad y Provincia';
+      return;
+    }
+
+    // Agregar al home
+    addSurveyToHome(surveyId, nombre, mId, n, colMap, interval);
+
+    // Iniciar sync en servidor
+    const url = _smServerUrl;
+    if(url){
+      try {
+        await fetch(`${url}/sync/config`, {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ surveyId, colMap, muestraId: mId, intervalMinutes: interval })
+        });
+        if(msg){ msg.style.color='var(--green)'; msg.textContent = `✓ Encuesta "${nombre}" creada y sync iniciado`; }
+      } catch(e){
+        addSurveyToHome(surveyId, nombre, mId, n, colMap, interval);
+        if(msg){ msg.style.color='var(--amber)'; msg.textContent = `✓ Creada (sync pendiente — servidor no disponible)`; }
+      }
+    } else {
+      if(msg){ msg.style.color='var(--amber)'; msg.textContent = `✓ Creada sin sync (configurá el servidor en SurveyMonkey)`; }
+    }
+  } else {
+    // Sin SM: crear encuesta manual vacía, listo para cargar CSV
+    const fakeId = 'manual_' + Date.now();
+    addSurveyToHome(fakeId, nombre, mId, n, {gen:'',edad:'',prov:'',depto:{},filterCol:'',filterVal:'not answered'}, 0);
+    // Guardar moneda
+    const sv = (APP.activeSurveys||[]).find(s => s.smSurveyId === fakeId);
+    if(sv) sv.cost = { moneda };
+    save();
+    if(msg){ msg.style.color='var(--green)'; msg.textContent = `✓ Encuesta "${nombre}" creada — cargá datos vía CSV`; }
+  }
+
+  save();
+  neRenderExistentes();
+  setTimeout(() => { if(msg) msg.textContent = ''; }, 4000);
+}
+
+function neReset(){
+  ['ne-nombre','ne-n','ne-interval'].forEach(id => { const el=document.getElementById(id); if(el) el.value=''; });
+  document.getElementById('ne-muestra').value = '';
+  document.getElementById('ne-use-sm').checked = false;
+  document.getElementById('ne-sm-fields').style.display = 'none';
+  document.getElementById('ne-colmap-wrap').style.display = 'none';
+  document.getElementById('ne-muestra-info').innerHTML = '';
+  _neQuestions = [];
+}
+
+function neRenderExistentes(){
+  const container = document.getElementById('ne-existentes-list');
+  if(!container) return;
+  const surveys = APP.activeSurveys || [];
+  if(!surveys.length){ container.innerHTML = '<div style="color:var(--muted);font-size:12px">No hay encuestas activas.</div>'; return; }
+  
+  container.innerHTML = surveys.map((sv, idx) => {
+    const m = (APP.muestras||[]).find(x => x.id === sv.muestraId);
+    const isManual = String(sv.smSurveyId).startsWith('manual_');
+    const isConnected = !isManual && sv.syncActive;
+    const badgeColor = isConnected ? 'var(--green)' : isManual ? 'var(--amber)' : 'var(--muted)';
+    const badgeText  = isConnected ? '● Sync activo' : isManual ? '○ Manual' : '○ Sin sync';
+    return `<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)">
+      <div style="flex:1">
+        <div style="font-weight:600;font-size:13px">${sv.smTitle}</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px">
+          ${m?.nombre||'Sin muestra'} · N=${(sv.n||0).toLocaleString('es-AR')} · 
+          <span style="font-family:var(--mono);color:var(--muted2)">${isManual ? 'ID manual' : 'SM: '+sv.smSurveyId}</span>
+        </div>
+      </div>
+      <span style="font-size:10px;color:${badgeColor};font-family:var(--mono)">${badgeText}</span>
+      ${isManual ? `<button class="btn btn-w" style="font-size:11px;padding:4px 10px" onclick="neConectarSM(${idx})">Conectar SM</button>` : ''}
+    </div>`;
+  }).join('');
+}
+
+async function neConectarSM(idx){
+  const sv = (APP.activeSurveys||[])[idx];
+  if(!sv) return;
+  
+  // Mostrar modal inline para ingresar surveyId
+  const surveyId = prompt(`ID de la encuesta en SurveyMonkey para "${sv.smTitle}":
+(lo encontrás en la URL de SM o en la lista de arriba)`);
+  if(!surveyId) return;
+
+  // Cargar preguntas y mostrar colmap
+  const url = _smServerUrl;
+  if(!url){ alert('Configurá el servidor en SurveyMonkey primero.'); return; }
+  
+  try {
+    const r = await fetch(`${url}/surveys/${surveyId}/questions`);
+    const data = await r.json();
+    if(data.error) throw new Error(data.error);
+    
+    // Actualizar smSurveyId
+    const oldId = sv.smSurveyId;
+    sv.smSurveyId = surveyId;
+    
+    // Ir al panel SM con esta encuesta pre-seleccionada para configurar colMap
+    goPanel('sync');
+    setTimeout(() => {
+      const smSel = document.getElementById('sm-survey-select');
+      if(smSel){ smSel.value = surveyId; }
+      // Recargar encuestas SM para que aparezca en el listado
+      alert(`Encuesta actualizada a SM ID: ${surveyId}\n\nAhora configurá el mapeo de columnas y hacé clic en "Iniciar sync".`);
+    }, 300);
+    
+    save();
+  } catch(e){
+    alert('Error: ' + e.message);
+  }
+}
+
+// Inicializar al abrir el panel
 
 // ══════════════════════════════════════════
 // INIT
