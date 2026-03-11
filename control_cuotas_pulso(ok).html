@@ -2562,9 +2562,10 @@ function updateCost(){
   const mult = ivaOn ? (1.08 * 1.21) : 1.08;
   const totalReal = base * mult;
 
-  // Guardar con flags
-  setSvCost({total:base,totalReal,moneda,ivaOn,mult,fecha:new Date().toLocaleDateString('es-AR')});
-  save();
+  // Solo guardar si hay presupuesto ingresado — no pisar con ceros
+  if(base > 0){
+    setSvCost({total:base,totalReal,moneda,ivaOn,mult,fecha:new Date().toLocaleDateString('es-AR')});
+  }
 
   const fmt=v=>v>0?`${moneda} ${Math.round(v).toLocaleString('es-AR')}`:'—';
   const porCaso=casos>0?totalReal/casos:0;
@@ -2593,14 +2594,25 @@ function updateCost(){
   if(el('kpi-costo'))      el('kpi-costo').textContent=porCaso>0?`${moneda} ${Math.round(porCaso).toLocaleString('es-AR')}`:'—';
 }
 function renderCostWidget(){
-  const _cost = getSvCost();
-  if(!_cost || !_cost.total) return;
   const el=id=>document.getElementById(id);
-  if(el('cost-total'))  el('cost-total').value=_cost.total||'';
-  if(el('cost-moneda')) el('cost-moneda').value=_cost.moneda||'$';
-  // Restore IVA toggle state
+  const _cost = getSvCost();
+
+  // SIEMPRE limpiar primero — evita que valores de otra encuesta queden en el DOM
+  if(el('cost-total'))  el('cost-total').value  = _cost.total  || '';
+  if(el('cost-moneda')) el('cost-moneda').value  = _cost.moneda || '$';
   const ivaToggle=el('cost-iva-toggle');
-  if(ivaToggle) ivaToggle.checked=_cost.ivaOn||false;
+  if(ivaToggle) ivaToggle.checked = _cost.ivaOn || false;
+
+  // Limpiar displays calculados si no hay presupuesto
+  if(!_cost.total){
+    if(el('cost-total-real')) el('cost-total-real').textContent='—';
+    if(el('cost-por-caso'))   el('cost-por-caso').textContent='—';
+    if(el('cost-estimado'))   el('cost-estimado').textContent='—';
+    if(el('cost-restante'))   el('cost-restante').textContent='—';
+    if(el('cost-fecha'))      el('cost-fecha').textContent='—';
+    if(el('kpi-costo'))       el('kpi-costo').textContent='—';
+    return;
+  }
   updateCost();
 }
 
@@ -3039,7 +3051,7 @@ function enterSurvey(idx){
 
   goPanel('dashboard');
   renderAll();
-  renderCostWidget();  // restaurar presupuesto de esta encuesta
+  renderCostWidget();  // limpia DOM y restaura presupuesto de esta encuesta específica
   populateManualProvs();
 }
 
