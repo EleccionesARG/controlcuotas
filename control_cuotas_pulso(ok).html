@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -1203,11 +1204,8 @@ function save(){
       muestras: APP.muestras || [],
       activeSurveys: APP.activeSurveys || [],
       activeMuestraId: APP.activeMuestraId || null,
-      n: APP.n || 2500,
-      warnPct: APP.warnPct || 80,
       surveys: APP.surveys || [],
-      cost: APP.cost || {},
-      nextId: APP.nextId || 1,
+      // cost/warnPct/n ahora viven en activeSurveys[].cost/.warnPct/.n
     };
     const fbRef = window._fbConfigRef || window._fbRef;
     if(fbRef && window._fbSet){
@@ -1653,7 +1651,7 @@ function openActivateModal(id){
   const m=APP.muestras.find(x=>x.id===id); if(!m)return;
   document.getElementById('act-modal-desc').textContent=`Muestra: ${m.nombre} · ${m.estratos.length} estratos · ${(m.ageGroups||[]).join(', ')}`;
   document.getElementById('act-n').value=APP.n||2500;
-  document.getElementById('act-warn').value=APP.warnPct||80;
+  document.getElementById('act-warn').value=getCurrentSurvey()?.warnPct||APP.warnPct||80;
   document.getElementById('activate-modal').dataset.muestraId=id;
   previewActivate(id);
   openModal('activate-modal');
@@ -1692,6 +1690,7 @@ function confirmActivate(){
   APP.activeMuestraId=id;
   APP.n=n;
   APP.warnPct=warnPct;
+  const _svW=getCurrentSurvey(); if(_svW) _svW.warnPct=warnPct;
   APP.quotas=quotas;
   save();
   closeModal('activate-modal');
@@ -2001,7 +2000,7 @@ function renderDash(){
     const[g,ag,e]=cParts(k);
     const tgt=quotas[k], cur=cases.filter(c=>c.gen===g&&c.ageGrp===ag&&String(c.estrato)===String(e)).length;
     const pf=tgt>0?cur/tgt:0;
-    const st=pf>=1?'full':(pf*100>=(APP.warnPct||80)?'warn':'ok');
+    const st=pf>=1?'full':(pf*100>=getWarnPct()?'warn':'ok');
     return{k,g,ag,e,tgt,cur,pf,st};
   });
   const closed=cells.filter(c=>c.st==='full').length;
@@ -2024,7 +2023,7 @@ function renderDash(){
   const progEl=el('dash-prog');
   if(progEl&&totTgt>0){
     const pv=Math.min(pct??0,100);
-    const bc=pv>=100?'var(--red)':pv>=(APP.warnPct||80)?'var(--amber)':'var(--green)';
+    const bc=pv>=100?'var(--red)':pv>=getWarnPct()?'var(--amber)':'var(--green)';
     progEl.innerHTML=`<div class="prog-wrap">
       <div class="prog-header"><span class="prog-label">Avance total del campo</span><span class="prog-pct" style="color:${bc}">${pv}%</span></div>
       <div class="prog-track"><div class="prog-fill" style="width:${pv}%;background:${bc}"></div></div>
@@ -2102,7 +2101,7 @@ function renderQuotaGrid(cells, m){
     // Recompute cur from APP.cases to ensure fresh data
     c.cur = (APP.cases||[]).filter(x=>x.gen===c.g&&x.ageGrp===c.ag&&String(x.estrato)===String(c.e)).length;
     c.pf = c.tgt>0?c.cur/c.tgt:0;
-    c.st = c.pf>=1?'full':(c.pf*100>=(APP.warnPct||80)?'warn':'ok');
+    c.st = c.pf>=1?'full':(c.pf*100>=getWarnPct()?'warn':'ok');
     cellMap[c.k]=c;
   });
 
@@ -2110,8 +2109,8 @@ function renderQuotaGrid(cells, m){
     if(!tgt) return `<div class="qcell-wrap cs-empty"><div class="qcell-top"><span class="qcell-cur">—</span><span class="qcell-pct-badge">—</span></div></div>`;
     const pf=Math.min(cur/tgt,1);
     const pct=Math.round(pf*100);
-    const st=pf>=1?'cs-full':pf*100>=APP.warnPct?'cs-warn':cur>0?'cs-ok':'cs-empty';
-    const icon=pf>=1?'✓ ':pf*100>=APP.warnPct?'':'';
+    const st=pf>=1?'cs-full':pf*100>=getWarnPct()?'cs-warn':cur>0?'cs-ok':'cs-empty';
+    const icon=pf>=1?'✓ ':pf*100>=getWarnPct()?'':'';
     if(compact) return `<div class="qcell-wrap ${st}" style="padding:8px 12px;min-width:90px">
       <div class="qcell-top" style="margin-bottom:4px"><span class="qcell-cur" style="font-size:18px">${cur}</span><span class="qcell-pct-badge" style="font-size:10px">${pct}%</span></div>
       <div class="qcell-tgt" style="font-size:10px;margin-bottom:4px">de ${tgt}</div>
@@ -2410,6 +2409,11 @@ function toggleCostPanel(){
   const p=document.getElementById('cost-panel');
   if(p) p.style.display=p.style.display==='none'?'block':'none';
 }
+function getSvCost(){ const sv=getCurrentSurvey(); return sv?sv.cost||{}:APP.cost||{}; }
+function getWarnPct(){ const sv=getCurrentSurvey(); return sv?(sv.warnPct||80):(APP.warnPct||80); }
+function setWarnPct(v){ const sv=getCurrentSurvey(); if(sv) sv.warnPct=v; else APP.warnPct=v; }
+function setSvCost(c){ const sv=getCurrentSurvey(); if(sv) sv.cost=c; else APP.cost=c; }
+
 function updateCost(){
   const base=parseFloat(document.getElementById('cost-total')?.value)||0;
   const moneda=document.getElementById('cost-moneda')?.value||'$';
@@ -2422,7 +2426,7 @@ function updateCost(){
   const totalReal = base * mult;
 
   // Guardar con flags
-  APP.cost={total:base,totalReal,moneda,ivaOn,mult,fecha:new Date().toLocaleDateString('es-AR')};
+  setSvCost({total:base,totalReal,moneda,ivaOn,mult,fecha:new Date().toLocaleDateString('es-AR')});
   save();
 
   const fmt=v=>v>0?`${moneda} ${Math.round(v).toLocaleString('es-AR')}`:'—';
@@ -2448,17 +2452,18 @@ function updateCost(){
   if(el('cost-por-caso'))  el('cost-por-caso').textContent=fmt(porCaso);
   if(el('cost-estimado'))  el('cost-estimado').textContent=fmt(estimado);
   if(el('cost-restante'))  el('cost-restante').textContent=restante>0?fmt(restante):'✓ Completado';
-  if(el('cost-fecha'))     el('cost-fecha').textContent=APP.cost.fecha||'—';
+  if(el('cost-fecha'))     el('cost-fecha').textContent=getSvCost().fecha||'—';
   if(el('kpi-costo'))      el('kpi-costo').textContent=porCaso>0?`${moneda} ${Math.round(porCaso).toLocaleString('es-AR')}`:'—';
 }
 function renderCostWidget(){
-  if(!APP.cost)return;
+  const _cost = getSvCost();
+  if(!_cost || !_cost.total) return;
   const el=id=>document.getElementById(id);
-  if(el('cost-total'))  el('cost-total').value=APP.cost.total||'';
-  if(el('cost-moneda')) el('cost-moneda').value=APP.cost.moneda||'$';
+  if(el('cost-total'))  el('cost-total').value=_cost.total||'';
+  if(el('cost-moneda')) el('cost-moneda').value=_cost.moneda||'$';
   // Restore IVA toggle state
   const ivaToggle=el('cost-iva-toggle');
-  if(ivaToggle) ivaToggle.checked=APP.cost.ivaOn||false;
+  if(ivaToggle) ivaToggle.checked=_cost.ivaOn||false;
   updateCost();
 }
 
@@ -2477,7 +2482,7 @@ function confirmSaveSurvey(){
     casos:APP.cases.length, jovenes:countJovenes(), n:APP.n,
     pct:APP.n>0?Math.round(APP.cases.length/APP.n*100):0,
     cerradas:closed, totalCuotas:keys.length,
-    muestra:m?.nombre||'—', cost:APP.cost,
+    muestra:m?.nombre||'—', cost:getSvCost(),
     fullState:JSON.stringify({...APP})
   };
   APP.surveys=APP.surveys||[];
@@ -2536,7 +2541,10 @@ function renderEncuestas(){
 function doReset(){
   const delCases=document.getElementById('rc-casos')?.checked;
   const delMuestra=document.getElementById('rc-muestra')?.checked;
-  if(delCases){APP.cases=[];APP.nextId=1;}
+  if(delCases){
+    APP.cases=[];APP.nextId=1;
+    const sv=getCurrentSurvey(); if(sv){ sv.cases=[]; sv._rawCases=null; sv.cost={}; }
+  }
   if(delMuestra){APP.activeMuestraId=null;APP.quotas={};APP.n=2500;APP.warnPct=80;}
   save(); renderAll(); renderMuestras(); closeModal('reset-modal');
 }
@@ -2817,8 +2825,8 @@ function renderHome(){
     const pct = tgt > 0 ? Math.round(tot/tgt*100) : 0;
     const closed = keys.filter(k => { const [g,ag,e]=cParts(k); return cases.filter(c=>c.gen===g&&c.ageGrp===ag&&c.estrato===e).length >= quotas[k]; }).length;
     const jovenes = cases.filter(c=>parseInt(c.edad)<=29).length;
-    const st = pct >= 100 ? 'st-done' : pct >= (APP.warnPct||80) ? 'st-warn' : tot > 0 ? 'st-ok' : 'st-empty';
-    const bc = pct >= 100 ? 'var(--red)' : pct >= (APP.warnPct||80) ? 'var(--amber)' : 'var(--green)';
+    const st = pct >= 100 ? 'st-done' : pct >= getWarnPct() ? 'st-warn' : tot > 0 ? 'st-ok' : 'st-empty';
+    const bc = pct >= 100 ? 'var(--red)' : pct >= getWarnPct() ? 'var(--amber)' : 'var(--green)';
     const lastSync = sv.lastSync ? new Date(sv.lastSync).toLocaleString('es-AR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : 'Nunca';
 
     html += `<div class="enc-home-card ${st}" onclick="enterSurvey(${idx})">
@@ -2893,6 +2901,7 @@ function enterSurvey(idx){
 
   goPanel('dashboard');
   renderAll();
+  renderCostWidget();  // restaurar presupuesto de esta encuesta
   populateManualProvs();
 }
 
@@ -2942,7 +2951,7 @@ function addSurveyToHome(smSurveyId, smTitle, muestraId, n, colMap, intervalMinu
     quotas,
     lastSync: existing >= 0 ? APP.activeSurveys[existing].lastSync : null,
     syncActive: false,
-    warnPct: APP.warnPct || 80,
+    warnPct: (existing >= 0 ? APP.activeSurveys[existing].warnPct : null) || APP.warnPct || 80,
   };
 
   // Preservar _rawCases del existente
