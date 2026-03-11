@@ -1283,24 +1283,55 @@ function normProv(s){ const n=norm(s); return PROV_ALIASES[n]||n; }
 
 // Lookup estrato from active muestra's refTable
 function lookupEst(prov, depto, m){
-  // m can be passed explicitly (for batch processing) or fallback to active muestra
   if(!m) m = getActiveMuestra();
-  if(!m || !m.refTable) return null;
-  const pn = normProv(prov);
+  if(!m || !m.refTable || !m.refTable.length) return null;
 
-  // Fixed overrides
-  if(m.fixedEstrato){ const fo=m.fixedEstrato; if(fo[pn]!==undefined) return fo[pn]; }
+  const pn = normProv(prov  || '');
+  const dn = norm    (depto || '');
 
-  const dn = norm(depto);
-  let r;
-  if(m.cobertura==='provincial'||m.cobertura==='municipal'){
-    r = m.refTable.find(x=>norm(x.nivel2)===dn);
-    if(!r) r = m.refTable.find(x=>norm(x.nivel2).includes(dn)||dn.includes(norm(x.nivel2)));
-  } else {
-    r = m.refTable.find(x=>normProv(x.nivel1)===pn&&norm(x.nivel2)===dn);
-    if(!r) r = m.refTable.find(x=>normProv(x.nivel1)===pn&&(norm(x.nivel2).includes(dn)||dn.includes(norm(x.nivel2))));
+  // 1. Fixed overrides (e.g. CABA=1)
+  if(m.fixedEstrato){
+    if(pn && m.fixedEstrato[pn] !== undefined) return String(m.fixedEstrato[pn]);
+    if(dn && m.fixedEstrato[dn] !== undefined) return String(m.fixedEstrato[dn]);
   }
-  return r?(r.estrato!==null&&r.estrato!==undefined?String(r.estrato):null):null;
+
+  const rt = m.refTable;
+  let r = null;
+
+  // Helper: normalized comparisons
+  const eq  = (a, b) => a === b;
+  const inc = (a, b) => a.includes(b) || b.includes(a);
+
+  // ── Estrategia 1: nivel1 + nivel2 exacto (nacional: prov + depto)
+  if(pn && dn){
+    r = rt.find(x => eq(normProv(x.nivel1), pn) && eq(norm(x.nivel2), dn));
+    if(!r) r = rt.find(x => eq(normProv(x.nivel1), pn) && inc(norm(x.nivel2), dn));
+  }
+  if(r) return String(r.estrato);
+
+  // ── Estrategia 2: buscar pn en nivel2 (Perú: departamento vino como prov)
+  if(pn){
+    r = rt.find(x => eq(norm(x.nivel2), pn));
+    if(!r) r = rt.find(x => inc(norm(x.nivel2), pn));
+  }
+  if(r) return String(r.estrato);
+
+  // ── Estrategia 3: buscar dn en nivel2 (provincial/municipal normal)
+  if(dn){
+    r = rt.find(x => eq(norm(x.nivel2), dn));
+    if(!r) r = rt.find(x => inc(norm(x.nivel2), dn));
+  }
+  if(r) return String(r.estrato);
+
+  // ── Estrategia 4: buscar pn en nivel1 sin importar nivel2 (fixed-estrato por provincia)
+  if(pn){
+    r = rt.find(x => eq(normProv(x.nivel1), pn) && (!x.nivel2 || x.nivel2 === ''));
+    if(!r && rt.every(x => !x.nivel2 || x.nivel2 === ''))
+      r = rt.find(x => eq(normProv(x.nivel1), pn));
+  }
+  if(r) return String(r.estrato);
+
+  return null;
 }
 
 // ══════════════════════════════════════════
@@ -2912,21 +2943,30 @@ function processRawCases(rawCases, muestra){
   const bounds = muestra.ageBounds || parseAgeBounds(groups);
   let nextId = 1;
 
-  // Para cobertura provincial/municipal, el campo geográfico único (departamento)
-  // puede venir como raw.prov si el colMap lo mapeó como "provincia".
-  // En ese caso, usarlo también como depto para que lookupEst matchee por nivel2.
   const isSubnacional = muestra.cobertura === 'provincial' || muestra.cobertura === 'municipal';
 
   return rawCases.map(raw => {
     const provVal  = raw.prov  || '';
     const deptoVal = raw.depto || '';
-    // Si es subnacional y depto está vacío, el departamento vino en prov
-    const effectiveDepto = isSubnacional && !deptoVal ? provVal : deptoVal;
-    const est = lookupEst(provVal, effectiveDepto, muestra);
+
+    // lookupEst es ahora inteligente y prueba todas las combinaciones
+    const est = lookupEst(provVal, deptoVal, muestra);
     const estrato = (est !== null && est !== undefined) ? String(est) : '?';
     const ageGrp = getAgeGrp(parseInt(raw.edad), bounds, groups);
     const key = ck(raw.gen, ageGrp, estrato);
-    return { ...raw, estrato, ageGrp, key, id: raw.id || `R${String(nextId++).padStart(4,'0')}`, _raw: false };
+
+    // Para encuestas subnacionales donde el depto vino como prov,
+    // normalizar: poner el valor geográfico útil en depto también
+    // para que renderProvincias lo muestre correctamente
+    const effectiveDepto = deptoVal || (isSubnacional ? provVal : '');
+
+    return {
+      ...raw,
+      depto: effectiveDepto,  // garantizar que depto tenga el valor geo más útil
+      estrato, ageGrp, key,
+      id: raw.id || `R${String(nextId++).padStart(4,'0')}`,
+      _raw: false
+    };
   });
 }
 
