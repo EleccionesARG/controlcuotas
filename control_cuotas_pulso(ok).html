@@ -40,7 +40,8 @@
         try {
           const parsed = JSON.parse(data);
           // Only restore config fields — never case data
-          const safe = ['muestras','activeSurveys','activeMuestraId','n','warnPct','surveys','cost','nextId'];
+          // Solo restaurar config estructural — cost/n/warnPct viven en activeSurveys[].* 
+          const safe = ['muestras','activeSurveys','activeMuestraId','surveys','nextId'];
           safe.forEach(k => { if(parsed[k] !== undefined) APP[k] = parsed[k]; });
           showSync('ok','● Conectado');
           renderHome();
@@ -1302,59 +1303,20 @@ const DFLT = {
 };
 let APP = {...DFLT};
 
-// ── PROXY: APP.cases y APP.quotas siempre apuntan a la survey activa ──
-// Esto evita que cualquier código que use APP.cases/APP.quotas
-// directamente contamine otras encuestas.
-(function(){
-  let _cases = [], _quotas = {}, _cost = {}, _n = 2500, _warnPct = 80;
-
-  function svOrFallback(key, fallback){
-    const sv = (typeof getCurrentSurvey === 'function') ? getCurrentSurvey() : null;
-    return sv ? (sv[key] !== undefined ? sv[key] : fallback) : fallback;
-  }
-  function setSv(key, val){
-    const sv = (typeof getCurrentSurvey === 'function') ? getCurrentSurvey() : null;
-    if(sv) sv[key] = val;
-    // también actualizar la copia local del fallback
-    if(key==='cases')   _cases   = val;
-    if(key==='quotas')  _quotas  = val;
-    if(key==='cost')    _cost    = val;
-    if(key==='n')       _n       = val;
-    if(key==='warnPct') _warnPct = val;
-  }
-
-  Object.defineProperties(APP, {
-    cases: {
-      get(){ return svOrFallback('cases', _cases); },
-      set(v){ setSv('cases', v); },
-      enumerable: true, configurable: true
-    },
-    quotas: {
-      get(){ return svOrFallback('quotas', _quotas); },
-      set(v){ setSv('quotas', v); },
-      enumerable: true, configurable: true
-    },
-    cost: {
-      get(){ return svOrFallback('cost', _cost); },
-      set(v){ setSv('cost', v); },
-      enumerable: true, configurable: true
-    },
-    n: {
-      get(){ return svOrFallback('n', _n); },
-      set(v){ setSv('n', v); },
-      enumerable: true, configurable: true
-    },
-    warnPct: {
-      get(){ return svOrFallback('warnPct', _warnPct); },
-      set(v){ setSv('warnPct', v); },
-      enumerable: true, configurable: true
-    },
-  });
-})();
+// APP.cases/quotas/cost/n/warnPct se manejan via getCurrentSurvey() — ver helpers abajo
 
 function save(){
   try {
-    localStorage.setItem('pulsov4', JSON.stringify(APP));
+    // Guardar solo campos seguros — cost/n/warnPct viven en activeSurveys[].* 
+    const appSnap = {
+      muestras: APP.muestras||[],
+      activeSurveys: APP.activeSurveys||[],
+      activeMuestraId: APP.activeMuestraId||null,
+      surveys: APP.surveys||[],
+      nextId: APP.nextId||1,
+      _smServerUrl: APP._smServerUrl||'',
+    };
+    localStorage.setItem('pulsov4', JSON.stringify(appSnap));
     // Write only config fields to Firebase (not cases)
     const configData = {
       muestras: APP.muestras || [],
@@ -1373,7 +1335,14 @@ function save(){
   } catch(e){}
 }
 function load(){
-  try { const d=localStorage.getItem('pulsov4'); if(d) Object.assign(APP,JSON.parse(d)); } catch(e){}
+  try {
+    const d = localStorage.getItem('pulsov4');
+    if(!d) return;
+    const parsed = JSON.parse(d);
+    // Restaurar solo campos de config — cost/n/warnPct viven en activeSurveys[].* 
+    const SAFE_KEYS = ['muestras','activeSurveys','activeMuestraId','surveys','nextId','_smServerUrl'];
+    SAFE_KEYS.forEach(k => { if(parsed[k] !== undefined) APP[k] = parsed[k]; });
+  } catch(e){ console.warn('load() error:', e); }
 }
 
 // ══════════════════════════════════════════
@@ -1405,8 +1374,8 @@ document.querySelectorAll('.modal-bg').forEach(m=>m.addEventListener('click',e=>
 function norm(s){ return(s||'').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim(); }
 function ck(g,ag,e){ return `${g}||${ag}||${e}`; }
 function cParts(k){ return k.split('||'); }
-function countCell(g,ag,e){ const es=String(e); return (APP.cases||[]).filter(c=>c.gen===g&&c.ageGrp===ag&&String(c.estrato)===es).length; }
-function countJovenes(){ return APP.cases.filter(c=>parseInt(c.edad)<=29).length; }
+function countCell(g,ag,e){ const es=String(e); return getCases().filter(c=>c.gen===g&&c.ageGrp===ag&&String(c.estrato)===es).length; }
+function countJovenes(){ return getCases().filter(c=>parseInt(c.edad)<=29).length; }
 
 function parseAgeBounds(groups){
   return groups.map(g=>{
@@ -1806,8 +1775,8 @@ function saveMuestra(){
 function openActivateModal(id){
   const m=APP.muestras.find(x=>x.id===id); if(!m)return;
   document.getElementById('act-modal-desc').textContent=`Muestra: ${m.nombre} · ${m.estratos.length} estratos · ${(m.ageGroups||[]).join(', ')}`;
-  document.getElementById('act-n').value=APP.n||2500;
-  document.getElementById('act-warn').value=getCurrentSurvey()?.warnPct||APP.warnPct||80;
+  document.getElementById('act-n').value=getCurrentSurvey()?.n||2500;
+  document.getElementById('act-warn').value=getCurrentSurvey()?.warnPct||80;
   document.getElementById('activate-modal').dataset.muestraId=id;
   previewActivate(id);
   openModal('activate-modal');
@@ -1844,10 +1813,9 @@ function confirmActivate(){
   Object.entries(m.distribution||{}).forEach(([k,pct])=>{ quotas[k]=Math.round(pct/100*n); });
 
   APP.activeMuestraId=id;
-  APP.n=n;
-  APP.warnPct=warnPct;
+  const _svSM=getCurrentSurvey(); if(_svSM){ _svSM.n=n; _svSM.warnPct=warnPct; }
   const _svW=getCurrentSurvey(); if(_svW) _svW.warnPct=warnPct;
-  APP.quotas=quotas;
+  // quotas se guardan en sv (ver enterSurvey)
   save();
   closeModal('activate-modal');
   renderMuestras();
@@ -1899,7 +1867,7 @@ function updateCargarMuestraInfo(){
   const m=getActiveMuestra();
   if(!m){ el.innerHTML=`<div class="al al-a">⚠ No hay muestra activa. Seleccioná una en <strong>Muestras</strong> antes de cargar datos.</div>`; return; }
   const cobLabels={nacional:'Prov → Depto → Estrato',provincial:'Depto → Estrato',municipal:'Localidad → Estrato',custom:'Nivel1 → Nivel2 → Estrato'};
-  el.innerHTML=`<div class="al al-g">✓ Muestra activa: <strong>${m.nombre}</strong> · ${cobLabels[m.cobertura]} · N=${APP.n.toLocaleString('es-AR')}</div>`;
+  el.innerHTML=`<div class="al al-g">✓ Muestra activa: <strong>${m.nombre}</strong> · ${cobLabels[m.cobertura]} · N=${getCurrentN().toLocaleString('es-AR')}</div>`;
 }
 
 // ══════════════════════════════════════════
@@ -2050,7 +2018,7 @@ function processSurvey(){
   let finalCases;
   if(mode==='append'){
     // Deduplicate: always read from the active survey, not APP.cases (stale risk)
-    const _svCases = getCurrentSurvey()?.cases || APP.cases || [];
+    const _svCases = getCurrentSurvey()?.cases || [];
     const existingIds = new Set(_svCases.map(c=>String(c.id)));
     const toAdd = newCases.filter(c=>{ if(existingIds.has(String(c.id))){ dupes++; return false; } return true; });
     finalCases = [..._svCases, ...toAdd];
@@ -2060,8 +2028,13 @@ function processSurvey(){
   }
 
   // Con el proxy, asignar a APP.cases ya escribe en sv.cases automáticamente
-  APP.cases = finalCases;
-  APP.nextId = nextId;
+  // Con el getter, escribir en sv.cases directamente
+  const _svCSV2 = getCurrentSurvey();
+  if(_svCSV2){
+    _svCSV2.cases = finalCases;
+    _svCSV2.nextId = nextId;
+  }
+  APP.nextId = nextId; // fallback global
   // Limpiar rawCases del server para que no se reescriba encima
   const _svCSV = getCurrentSurvey();
   if(_svCSV) _svCSV._rawCases = null;
@@ -2071,7 +2044,7 @@ function processSurvey(){
   if(excluded) msg += ` · ${excluded} excluidos`;
   if(dupes)    msg += ` · <span style="color:var(--muted)">${dupes} ya existían</span>`;
   if(noEst)    msg += ` · <span style="color:var(--amber)">${noEst} sin estrato</span>`;
-  msg += ` · <strong style="color:var(--text)">Total: ${APP.cases.length}</strong>`;
+  msg += ` · <strong style="color:var(--text)">Total: ${getCases().length}</strong>`;
 
   const msgEl=document.getElementById('sv-proc-msg');
   if(msgEl) msgEl.innerHTML = msg;
@@ -2134,8 +2107,8 @@ function renderDash(){
   const titleEl=document.getElementById('dash-title');
   if(titleEl) titleEl.textContent = sv ? sv.smTitle || m?.nombre || 'Dashboard' : m?.nombre || 'Dashboard';
 
-  const quotas = sv ? (sv.quotas||{}) : (APP.quotas||{});
-  const cases  = sv ? (sv.cases||[])  : (APP.cases||[]);
+  const quotas = sv ? (sv.quotas||{}) : {};
+  const cases  = sv ? (sv.cases||[])  : [];
 
   // APP.cases y APP.quotas son proxies — ya apuntan a sv automáticamente
 
@@ -2248,7 +2221,7 @@ function renderQuotaGrid(cells, m){
   const cellMap={};
   cells.forEach(c=>{
     // Recompute cur from APP.cases to ensure fresh data
-    c.cur = (APP.cases||[]).filter(x=>x.gen===c.g&&x.ageGrp===c.ag&&String(x.estrato)===String(c.e)).length;
+    c.cur = getCases().filter(x=>x.gen===c.g&&x.ageGrp===c.ag&&String(x.estrato)===String(c.e)).length;
     c.pf = c.tgt>0?c.cur/c.tgt:0;
     c.st = c.pf>=1?'full':(c.pf*100>=getWarnPct()?'warn':'ok');
     cellMap[c.k]=c;
@@ -2321,7 +2294,7 @@ function renderQuotaGrid(cells, m){
             const done=rowTotals[ri].tgt>0&&rowTotals[ri].cur>=rowTotals[ri].tgt;
             return`<tr style="${done?'opacity:.55':''}">
             <td class="td-label">${done?'✓ ':''} Estrato ${e}</td>
-            ${ages.map(ag=>{const c=cellMap[ck(g,ag,e)]||{cur:0,tgt:APP.quotas[ck(g,ag,e)]||0};return`<td>${cellHtml(c.cur,c.tgt,_compact)}</td>`;}).join('')}
+            ${ages.map(ag=>{const c=cellMap[ck(g,ag,e)]||{cur:0,tgt:getQuotas()[ck(g,ag,e)]||0};return`<td>${cellHtml(c.cur,c.tgt,_compact)}</td>`;}).join('')}
             <td class="td-total">${cellHtml(rowTotals[ri].cur,rowTotals[ri].tgt,_compact)}</td>
           </tr>`;}).join('')}
         </tbody>
@@ -2346,7 +2319,8 @@ function clearTableFilters(){
 }
 function renderTable(){
   const tbody=document.getElementById('tbl-body'); if(!tbody)return;
-  const tot=APP.cases.length;
+  const _rtCases=getCases(); const _rtQuotas=getQuotas();
+  const tot=_rtCases.length;
   const el=id=>document.getElementById(id);
   if(el('tbl-count'))el('tbl-count').textContent=tot.toLocaleString('es-AR');
   if(el('casos-sub'))el('casos-sub').textContent=tot>0?`${tot.toLocaleString('es-AR')} casos procesados`:'Sin datos';
@@ -2356,7 +2330,7 @@ function renderTable(){
   if(fEst){
     const cur=fEst.value;
     const m=getActiveMuestra();
-    const estratos=m?m.estratos:[...new Set(APP.cases.map(c=>c.estrato))].sort();
+    const estratos=m?m.estratos:[...new Set(_rtCases.map(c=>c.estrato))].sort();
     fEst.innerHTML='<option value="">Todos los estratos</option>'+estratos.map(e=>`<option value="${e}" ${cur===e?'selected':''}>Estrato ${e}</option>`).join('');
   }
 
@@ -2367,14 +2341,14 @@ function renderTable(){
   const fEstVal=el('tbl-f-est')?.value||'';
   const fEstado=el('tbl-f-estado')?.value||'';
 
-  let filtered=APP.cases.slice().reverse();
+  let filtered=_rtCases.slice().reverse();
   if(search) filtered=filtered.filter(c=>(c.id||'').toLowerCase().includes(search)||(c.prov||'').toLowerCase().includes(search)||(c.depto||'').toLowerCase().includes(search));
   if(fGen) filtered=filtered.filter(c=>c.gen===fGen);
   if(fEstVal) filtered=filtered.filter(c=>c.estrato===fEstVal);
   if(fEstado){
     filtered=filtered.filter(c=>{
-      const tgt=APP.quotas[c.key]||0;
-      const exc=tgt>0&&APP.cases.filter(x=>x.key===c.key).length>tgt;
+      const tgt=_rtQuotas[c.key]||0;
+      const exc=tgt>0&&_rtCases.filter(x=>x.key===c.key).length>tgt;
       const noE=c.estrato==='?';
       if(fEstado==='ok')return !exc&&!noE;
       if(fEstado==='excede')return exc;
@@ -2387,15 +2361,15 @@ function renderTable(){
 
   const display=filtered.slice(0,500), hidden=filtered.length-display.length;
   tbody.innerHTML=display.map(c=>{
-    const origIdx=APP.cases.indexOf(c);
-    const tgt=APP.quotas[c.key]||0;
-    const exc=tgt>0&&APP.cases.filter(x=>x.key===c.key).length>tgt;
+    const origIdx=_rtCases.indexOf(c);
+    const tgt=_rtQuotas[c.key]||0;
+    const exc=tgt>0&&_rtCases.filter(x=>x.key===c.key).length>tgt;
     const noE=c.estrato==='?';
     const gTag=c.gen==='Masculino'?'tag-m':c.gen==='Femenino'?'tag-f':'tag-nb';
     const stC=noE?'var(--amber)':exc?'var(--red)':'var(--green)';
     const stT=noE?'⚠ Sin est.':exc?'⚠ Excede':'✓ OK';
     return`<tr class="${exc?'tr-bad':noE?'tr-noest':''}">
-      <td class="td-dim">${APP.cases.length-APP.cases.indexOf(c)}</td>
+      <td class="td-dim">${_rtCases.length-_rtCases.indexOf(c)}</td>
       <td>${c.id}</td>
       <td><span class="tag ${gTag}">${c.gen}</span></td>
       <td>${c.edad}</td><td>${c.ageGrp}</td>
@@ -2429,18 +2403,17 @@ function renderSidebar(){
 
 function rmCase(i){
   // APP.cases es proxy — splice modifica sv.cases directamente
-  APP.cases.splice(i,1);
+  getCases().splice(i,1);
   save();renderAll();
 }
 function clearCases(){
   if(!confirm('¿Borrar todos los casos?'))return;
-  APP.cases=[];APP.nextId=1;
-  const sv=getCurrentSurvey(); if(sv) sv._rawCases=null;
+  const _svCC=getCurrentSurvey(); if(_svCC){ _svCC.cases=[]; _svCC._rawCases=null; _svCC.nextId=1; } APP.nextId=1;
   save();renderAll();
 }
 function exportCSV(){
   const rows=[['#','ID','Genero','Edad','GrupoEdad','Nivel1','Nivel2','Estrato','Celda']];
-  APP.cases.forEach((c,i)=>rows.push([i+1,c.id,c.gen,c.edad,c.ageGrp,c.prov||'',c.depto||'',c.estrato,`${c.gen}/${c.ageGrp}/E${c.estrato}`]));
+  getCases().forEach((c,i)=>rows.push([i+1,c.id,c.gen,c.edad,c.ageGrp,c.prov||'',c.depto||'',c.estrato,`${c.gen}/${c.ageGrp}/E${c.estrato}`]));
   const csv=rows.map(r=>r.map(v=>`"${v||''}"`).join(',')).join('\n');
   const a=document.createElement('a');
   a.href=URL.createObjectURL(new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8;'}));
@@ -2478,10 +2451,13 @@ function addManual(){
   const _estM=lookupEst(prov,depto); const estrato=(_estM!==null&&_estM!==undefined)?String(_estM):'?';
   const ageGrp=getAgeGrp(edad,m.ageBounds,m.ageGroups);
   const key=ck(gen,ageGrp,estrato);
-  const tgt=APP.quotas[key]||0;
+  const tgt=getQuotas()[key]||0;
   if(tgt>0&&countCell(gen,ageGrp,estrato)>=tgt&&!confirm(`⚠ Cuota completa. ¿Agregás igual?`))return;
-  APP.cases.push({id:idRaw||`R${String(APP.nextId).padStart(4,'0')}`,gen,edad,ageGrp,prov,depto,estrato,key,ts:Date.now()});
-  APP.nextId++;
+  const _svAC=getCurrentSurvey(); if(_svAC){
+    if(!_svAC.nextId) _svAC.nextId=1;
+    getCases().push({id:idRaw||`R${String(_svAC.nextId).padStart(4,'0')}`,gen,edad,ageGrp,prov,depto,estrato,key,ts:Date.now()});
+    _svAC.nextId++;
+  }
   document.getElementById('m-edad').value=''; document.getElementById('m-id').value='';
   save();renderAll();
 }
@@ -2493,7 +2469,7 @@ function renderProvincias(){
   const wrap=document.getElementById('prov-table-wrap'); if(!wrap)return;
   const sumWrap=document.getElementById('prov-summary');
   const m=getActiveMuestra();
-  const cases=APP.cases;
+  const cases=getCases();
   if(!cases.length){ wrap.innerHTML='<div class="empty-state"><div class="empty-icon">⊛</div><div class="empty-sub">No hay casos cargados.</div></div>'; if(sumWrap)sumWrap.innerHTML=''; return; }
   const ages=m?(m.ageGroups||[]):[...new Set(cases.map(c=>c.ageGrp))].sort();
   const generos=['Masculino','Femenino'];
@@ -2557,18 +2533,30 @@ function toggleCostPanel(){
   const p=document.getElementById('cost-panel');
   if(p) p.style.display=p.style.display==='none'?'block':'none';
 }
-// Con el proxy, APP.cost/warnPct ya apuntan a sv — estos helpers son wrappers simples
-function getSvCost(){ return APP.cost || {}; }
-function getWarnPct(){ return APP.warnPct || 80; }
-function setWarnPct(v){ APP.warnPct = v; }
-function setSvCost(c){ APP.cost = c; }
+// Helpers per-survey: siempre leer/escribir de getCurrentSurvey()
+function getSvCost(){ 
+  const sv = getCurrentSurvey(); 
+  return sv ? (sv.cost || {}) : {}; 
+}
+function setSvCost(c){ 
+  const sv = getCurrentSurvey(); 
+  if(sv){ sv.cost = c; save(); }
+}
+function getWarnPct(){ 
+  const sv = getCurrentSurvey(); 
+  return sv ? (sv.warnPct || 80) : 80; 
+}
+function setWarnPct(v){ 
+  const sv = getCurrentSurvey(); 
+  if(sv){ sv.warnPct = v; save(); }
+}
 
 function updateCost(){
   const base=parseFloat(document.getElementById('cost-total')?.value)||0;
   const moneda=document.getElementById('cost-moneda')?.value||'$';
   const ivaOn=document.getElementById('cost-iva-toggle')?.checked||false;
-  const casos=(getCurrentSurvey()?.cases||APP.cases||[]).length;
-  const nObj=getCurrentN?getCurrentN():(APP.n||0);
+  const casos=getCases().length;
+  const nObj=getCurrentN();
 
   // Fee Meta es siempre 8%, IVA 21% opcional
   const mult = ivaOn ? (1.08 * 1.21) : 1.08;
@@ -2624,12 +2612,12 @@ function confirmSaveSurvey(){
   if(!titulo){alert('Ingresá un título.');return;}
   const notas=(document.getElementById('enc-notas')?.value||'').trim();
   const m=getActiveMuestra();
-  const keys=Object.keys(APP.quotas).filter(k=>APP.quotas[k]>0);
-  const closed=keys.filter(k=>{const[g,ag,e]=cParts(k);return APP.quotas[k]>0&&countCell(g,ag,e)>=APP.quotas[k];}).length;
+  const keys=Object.keys(getQuotas()).filter(k=>getQuotas()[k]>0);
+  const closed=keys.filter(k=>{const[g,ag,e]=cParts(k);return getQuotas()[k]>0&&countCell(g,ag,e)>=getQuotas()[k];}).length;
   const snap={
     id:Date.now(), titulo, notas, fecha:new Date().toLocaleDateString('es-AR'),
-    casos:APP.cases.length, jovenes:countJovenes(), n:APP.n,
-    pct:APP.n>0?Math.round(APP.cases.length/APP.n*100):0,
+    casos:getCases().length, jovenes:countJovenes(), n:getCurrentN(),
+    pct:getCurrentN()>0?Math.round(getCases().length/getCurrentN()*100):0,
     cerradas:closed, totalCuotas:keys.length,
     muestra:m?.nombre||'—', cost:getSvCost(),
     fullState:JSON.stringify({...APP})
@@ -2691,10 +2679,13 @@ function doReset(){
   const delCases=document.getElementById('rc-casos')?.checked;
   const delMuestra=document.getElementById('rc-muestra')?.checked;
   if(delCases){
-    APP.cases=[];APP.nextId=1;
-    const sv=getCurrentSurvey(); if(sv){ sv._rawCases=null; sv.cost={}; }
+    const _svReset=getCurrentSurvey(); if(_svReset){ _svReset.cases=[]; _svReset._rawCases=null; _svReset.cost={}; _svReset.nextId=1; }
+    APP.nextId=1;
   }
-  if(delMuestra){APP.activeMuestraId=null;APP.quotas={};APP.n=2500;APP.warnPct=80;}
+  if(delMuestra){
+    APP.activeMuestraId=null;
+    const _svRM=getCurrentSurvey(); if(_svRM){ _svRM.quotas={}; _svRM.n=2500; _svRM.warnPct=80; }
+  }
   save(); renderAll(); renderMuestras(); closeModal('reset-modal');
 }
 
@@ -2947,9 +2938,9 @@ function getCurrentSurvey(){
 }
 
 // Override APP.cases / APP.quotas to always point to current survey
-function getCases(){ return getCurrentSurvey()?.cases || APP.cases || []; }
-function getQuotas(){ return getCurrentSurvey()?.quotas || APP.quotas || {}; }
-function getCurrentN(){ return getCurrentSurvey()?.n || APP.n || 2500; }
+function getCases(){ return getCurrentSurvey()?.cases || []; }
+function getQuotas(){ return getCurrentSurvey()?.quotas || {}; }
+function getCurrentN(){ return getCurrentSurvey()?.n || 2500; }
 function getCurrentMuestra(){
   const sv = getCurrentSurvey();
   const mId = sv ? sv.muestraId : APP.activeMuestraId;
@@ -3019,8 +3010,7 @@ function enterSurvey(idx){
   if(!sv) return;
 
   APP.activeMuestraId = sv.muestraId;
-  APP.n = sv.n || 2500;
-  APP.warnPct = sv.warnPct || 80;
+  // n/warnPct son per-sv — no necesitan sync a APP global
 
   const m = (APP.muestras||[]).find(x => x.id === sv.muestraId);
 
@@ -3087,17 +3077,19 @@ function addSurveyToHome(smSurveyId, smTitle, muestraId, n, colMap, intervalMinu
     Object.entries(m.distribution).forEach(([k,pct])=>{ quotas[k] = Math.round(pct/100*(n||2500)); });
   }
 
+  const prevSv = existing >= 0 ? APP.activeSurveys[existing] : null;
   const entry = {
     smSurveyId, smTitle,
     muestraId: muestraId || null,
     n: n || 2500,
     colMap: colMap || {},
     intervalMinutes: intervalMinutes || 15,
-    cases: existing >= 0 ? (APP.activeSurveys[existing].cases||[]) : [],
+    cases:  prevSv ? (prevSv.cases||[])  : [],
     quotas,
-    lastSync: existing >= 0 ? APP.activeSurveys[existing].lastSync : null,
+    lastSync:   prevSv ? prevSv.lastSync  : null,
     syncActive: false,
-    warnPct: (existing >= 0 ? APP.activeSurveys[existing].warnPct : null) || APP.warnPct || 80,
+    warnPct:    prevSv ? (prevSv.warnPct||80)  : 80,
+    cost:       prevSv ? (prevSv.cost||{})     : {},  // ★ PRESERVAR costo existente
   };
 
   // Preservar _rawCases del existente
@@ -3253,7 +3245,7 @@ async function startSync(){
   const surveyTitle = document.getElementById('sm-survey-select')?.options[document.getElementById('sm-survey-select').selectedIndex]?.text || surveyId;
   const muestraId = parseInt(document.getElementById('sm-muestra-select')?.value);
   const intervalMinutes = parseInt(document.getElementById('sm-interval')?.value) || 15;
-  const n = parseInt(document.getElementById('sm-n')?.value) || APP.n;
+  const n = parseInt(document.getElementById('sm-n')?.value) || getCurrentSurvey()?.n || 2500;
 
   if(!url){ alert('Ingresá la URL del servidor.'); return; }
   if(!surveyId){ alert('Seleccioná una encuesta.'); return; }
@@ -3318,7 +3310,7 @@ function goPanel(p){
     // Show current case count
     const countEl = document.getElementById('cargar-casos-actuales');
     const countTxt = document.getElementById('cargar-casos-count');
-    const cur = APP.cases?.length || 0;
+    const cur = getCases().length;
     if(countEl && cur > 0){
       countEl.style.display = 'block';
       countTxt.innerHTML = `Casos cargados actualmente: <strong style="color:var(--text)">${cur}</strong> — El modo <em>Agregar</em> los conserva; el modo <em>Reemplazar</em> los borra.`;
@@ -3387,7 +3379,7 @@ function renderSemaforo(tot, totTgt, closed, totalQuotas, cells){
 // VELOCITY + ETA
 // ══════════════════════════════════════════
 function getCasesByDay(){
-  const cases = (typeof getCases==='function') ? getCases() : (APP.cases||[]);
+  const cases = getCases();
   const byDay = {};
   cases.forEach(c => {
     if(!c.ts) return;
@@ -3399,8 +3391,8 @@ function getCasesByDay(){
 }
 
 function calcETA(){
-  const cases = (typeof getCases==='function') ? getCases() : (APP.cases||[]);
-  const quotas = APP.quotas || {};
+  const cases = getCases();
+  const quotas = getQuotas();
   const totTgt = Object.values(quotas).reduce((a,b)=>a+b,0);
   const tot = cases.length;
   if(!totTgt || tot >= totTgt) return 0;
@@ -3423,8 +3415,8 @@ function renderVelocidad(){
   const entries = Object.entries(byDay).slice(-14); // last 14 days
   const maxVal = entries.length ? Math.max(...entries.map(e=>e[1])) : 1;
   const etaDays = calcETA();
-  const cases = (typeof getCases==='function') ? getCases() : (APP.cases||[]);
-  const quotas = APP.quotas || {};
+  const cases = getCases();
+  const quotas = getQuotas();
   const totTgt = Object.values(quotas).reduce((a,b)=>a+b,0);
   const avgPerDay = entries.length > 0 ? Math.round(entries.slice(-3).reduce((s,[,v])=>s+v,0)/Math.min(3,entries.length)) : 0;
 
@@ -3472,7 +3464,7 @@ function renderVelocidad(){
 // ══════════════════════════════════════════
 function renderEstrato4(){
   const wrap = document.getElementById('e4-table-wrap'); if(!wrap) return;
-  const cases = (typeof getCases==='function') ? getCases() : (APP.cases||[]);
+  const cases = getCases();
   const search = (document.getElementById('e4-search')?.value||'').toLowerCase();
   const sortBy = document.getElementById('e4-sort')?.value || 'casos';
 
