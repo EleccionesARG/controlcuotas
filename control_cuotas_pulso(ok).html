@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -2913,8 +2912,17 @@ function processRawCases(rawCases, muestra){
   const bounds = muestra.ageBounds || parseAgeBounds(groups);
   let nextId = 1;
 
+  // Para cobertura provincial/municipal, el campo geográfico único (departamento)
+  // puede venir como raw.prov si el colMap lo mapeó como "provincia".
+  // En ese caso, usarlo también como depto para que lookupEst matchee por nivel2.
+  const isSubnacional = muestra.cobertura === 'provincial' || muestra.cobertura === 'municipal';
+
   return rawCases.map(raw => {
-    const est = lookupEst(raw.prov, raw.depto, muestra);
+    const provVal  = raw.prov  || '';
+    const deptoVal = raw.depto || '';
+    // Si es subnacional y depto está vacío, el departamento vino en prov
+    const effectiveDepto = isSubnacional && !deptoVal ? provVal : deptoVal;
+    const est = lookupEst(provVal, effectiveDepto, muestra);
     const estrato = (est !== null && est !== undefined) ? String(est) : '?';
     const ageGrp = getAgeGrp(parseInt(raw.edad), bounds, groups);
     const key = ck(raw.gen, ageGrp, estrato);
@@ -3569,6 +3577,42 @@ populateManualProvs();
 (function(){
   const el=document.getElementById('sm-server-url');
   if(el) el.value=_smServerUrl;
+})();
+</script>
+
+<!-- ══ AUTO-RELOAD: detecta nueva versión en GitHub Pages ══ -->
+<script>
+(function(){
+  const CURRENT_VERSION = '97107514';
+  const CHECK_INTERVAL  = 5 * 60 * 1000; // cada 5 minutos
+
+  async function checkVersion(){
+    try {
+      // Fetch el HTML con cache-bust para ver si cambió
+      const url = window.location.href.split('?')[0] + '?_v=' + Date.now();
+      const res  = await fetch(url, { cache: 'no-store' });
+      const text = await res.text();
+      // Buscar el token de versión en el HTML descargado
+      const match = text.match(/CURRENT_VERSION = '([a-f0-9]+)'/);
+      if(match && match[1] !== CURRENT_VERSION){
+        console.log('[AutoReload] Nueva versión detectada:', match[1], '→ recargando...');
+        // Mostrar aviso suave antes de recargar
+        const banner = document.createElement('div');
+        banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:9999;background:#3ecf8e;color:#000;text-align:center;padding:10px;font-weight:600;font-size:13px;cursor:pointer';
+        banner.textContent = '🔄 Nueva versión disponible — recargando...';
+        banner.onclick = () => location.reload(true);
+        document.body.appendChild(banner);
+        setTimeout(() => location.reload(true), 2000);
+      }
+    } catch(e){
+      // silencioso — no interrumpir si falla
+    }
+  }
+
+  // Primera verificación a los 30 segundos de cargar
+  setTimeout(checkVersion, 30000);
+  // Luego cada 5 minutos
+  setInterval(checkVersion, CHECK_INTERVAL);
 })();
 </script>
 </body>
