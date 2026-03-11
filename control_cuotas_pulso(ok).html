@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -47,15 +48,38 @@
         } catch(e){ console.warn('Config parse error:', e); }
       });
 
-      // Sync listener: receives rawCases from Railway server
+      // Sync listener: escucha la raíz pulso/v4sync
+      // El servidor escribe en pulso/v4sync/{surveyId}
+      // onValue en la raíz recibe un objeto { surveyId1: "...", surveyId2: "..." }
+      // Cada vez que cualquier sub-clave cambia, se dispara el listener
       onValue(fbSyncRef, (snap) => {
-        const data = snap.val();
-        if(!data || window._suppressRemote) return;
+        if(window._suppressRemote) return;
+        const root = snap.val();
+        console.log('[Firebase v4sync] tipo:', typeof root, '| keys:', root && typeof root === 'object' ? Object.keys(root) : 'N/A');
+        if(!root) { console.warn('[Firebase v4sync] vacío'); return; }
         try {
-          const parsed = JSON.parse(data);
-          updateSurveyFromFirebase(parsed);
+          if(typeof root === 'string'){
+            // Formato legacy: servidor viejo escribía string plano
+            console.log('[Firebase v4sync] formato LEGACY (string)');
+            const parsed = JSON.parse(root);
+            console.log('[Firebase v4sync] surveyId en payload:', parsed.surveyId || '(ausente)');
+            updateSurveyFromFirebase(parsed);
+          } else if(typeof root === 'object'){
+            // Nuevo formato: { surveyId: "string payload", ... }
+            const keys = Object.keys(root);
+            console.log('[Firebase v4sync] formato NUEVO (objeto) con keys:', keys);
+            keys.forEach(sid => {
+              const raw = root[sid];
+              try {
+                const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+                if(!parsed.surveyId) parsed.surveyId = sid;
+                console.log(`[Firebase v4sync] procesando sid=${sid} rawCases=${parsed.rawCases?.length ?? 'none'}`);
+                updateSurveyFromFirebase(parsed);
+              } catch(e){ console.warn('[Firebase v4sync] parse error for', sid, e); }
+            });
+          }
           showSync('sync','● En vivo');
-        } catch(e){ console.warn('Sync parse error:', e); }
+        } catch(e){ console.warn('[Firebase v4sync] root parse error:', e); }
       });
       showSync('ok','● Conectado');
     } catch(e){ showSync('err','● Error Firebase'); }
@@ -2904,15 +2928,20 @@ function updateSurveyFromFirebase(data){
   if(!data || !APP.activeSurveys) return;
   if(!data.rawCases && !data.cases) { renderHome(); return; }
 
-  // The server must include surveyId so we know which survey to update.
-  // If absent (legacy), we fall back to updating only the one active survey.
   const targetId = data.surveyId ? String(data.surveyId) : null;
+  const activeSurveyIds = APP.activeSurveys.map(sv => sv.smSurveyId);
+  console.log(`[updateSurveyFromFirebase] targetId=${targetId} | rawCases=${data.rawCases?.length} | activeSurveys=[${activeSurveyIds}]`);
 
   let updatedCurrent = false;
+  let matchFound = false;
 
   APP.activeSurveys.forEach(sv => {
     // ★ CORE ISOLATION: skip surveys that don't match the incoming surveyId
-    if(targetId && String(sv.smSurveyId) !== targetId) return;
+    if(targetId && String(sv.smSurveyId) !== targetId){
+      console.log(`[updateSurveyFromFirebase] SKIP sv=${sv.smSurveyId} (no coincide con targetId=${targetId})`);
+      return;
+    }
+    matchFound = true;
 
     if(data.lastSync)  sv.lastSync  = data.lastSync;
     if(data.syncStats) sv.syncStats = data.syncStats;
@@ -2925,6 +2954,7 @@ function updateSurveyFromFirebase(data){
       sv.cases = data.cases;
     }
 
+    console.log(`[updateSurveyFromFirebase] MATCH sv=${sv.smSurveyId} → ${sv.cases?.length} casos asignados`);
     // Check if this is the currently viewed survey
     if(APP.currentSurveyIdx != null && APP.activeSurveys[APP.currentSurveyIdx] === sv){
       updatedCurrent = true;
@@ -2940,6 +2970,9 @@ function updateSurveyFromFirebase(data){
       renderAll();
       updateDashSyncBar();
     }
+  }
+  if(!matchFound && targetId){
+    console.warn(`[updateSurveyFromFirebase] ⚠ No se encontró ninguna encuesta con smSurveyId=${targetId}. IDs activos: [${activeSurveyIds}]`);
   }
   renderHome();
 }
