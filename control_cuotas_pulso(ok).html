@@ -1470,7 +1470,12 @@ function lookupEst(prov, depto, m){
 // ══════════════════════════════════════════
 let _refRows=[], _editingMuestraId=null;
 
-function getActiveMuestra(){ return APP.muestras.find(m=>m.id===APP.activeMuestraId)||null; }
+function getActiveMuestra(){
+  // Si hay encuesta activa, usar su muestra; si no, la global
+  const sv = getCurrentSurvey();
+  const mId = sv ? sv.muestraId : APP.activeMuestraId;
+  return APP.muestras.find(m=>m.id===mId)||null;
+}
 
 function openNewMuestra(){
   _editingMuestraId=null; _refRows=[];
@@ -1814,7 +1819,6 @@ function confirmActivate(){
 
   APP.activeMuestraId=id;
   const _svSM=getCurrentSurvey(); if(_svSM){ _svSM.n=n; _svSM.warnPct=warnPct; }
-  const _svW=getCurrentSurvey(); if(_svW) _svW.warnPct=warnPct;
   // quotas se guardan en sv (ver enterSurvey)
   save();
   closeModal('activate-modal');
@@ -1989,7 +1993,8 @@ function processSurvey(){
 
   let added=0, noEst=0, excluded=0, dupes=0;
   const newCases=[];
-  let nextId = APP.nextId || 1;
+  const _svForId = getCurrentSurvey();
+  let nextId = (_svForId?.nextId) || APP.nextId || 1;
 
   _svRows.slice(1).forEach(row=>{
     const gen=(row[genIdx]||'').trim();
@@ -2029,15 +2034,13 @@ function processSurvey(){
 
   // Con el proxy, asignar a APP.cases ya escribe en sv.cases automáticamente
   // Con el getter, escribir en sv.cases directamente
-  const _svCSV2 = getCurrentSurvey();
-  if(_svCSV2){
-    _svCSV2.cases = finalCases;
-    _svCSV2.nextId = nextId;
-  }
-  APP.nextId = nextId; // fallback global
-  // Limpiar rawCases del server para que no se reescriba encima
   const _svCSV = getCurrentSurvey();
-  if(_svCSV) _svCSV._rawCases = null;
+  if(_svCSV){
+    _svCSV.cases = finalCases;
+    _svCSV.nextId = nextId;
+    _svCSV._rawCases = null;
+  }
+  APP.nextId = nextId;
 
   // Result message
   let msg = `<span style="color:var(--green)">✓ ${added} casos ${mode==='append'?'agregados':'cargados'}</span>`;
@@ -2085,7 +2088,7 @@ function renderAll(){
   renderSidebar();
   renderProvincias();
   const jEl=document.getElementById('kpi-jovenes'); if(jEl)jEl.textContent=countJovenes().toLocaleString('es-AR');
-  updateCost();
+  _renderCostDisplay(); // solo display, no guarda
   updateDashSyncBar();
 }
 
@@ -2551,47 +2554,58 @@ function setWarnPct(v){
   if(sv){ sv.warnPct = v; save(); }
 }
 
-function updateCost(){
-  const base=parseFloat(document.getElementById('cost-total')?.value)||0;
-  const moneda=document.getElementById('cost-moneda')?.value||'$';
-  const ivaOn=document.getElementById('cost-iva-toggle')?.checked||false;
-  const casos=getCases().length;
-  const nObj=getCurrentN();
-
-  // Fee Meta es siempre 8%, IVA 21% opcional
-  const mult = ivaOn ? (1.08 * 1.21) : 1.08;
-  const totalReal = base * mult;
-
-  // Solo guardar si hay presupuesto ingresado — no pisar con ceros
-  if(base > 0){
-    setSvCost({total:base,totalReal,moneda,ivaOn,mult,fecha:new Date().toLocaleDateString('es-AR')});
-  }
+// _renderCostDisplay: solo actualiza el DOM a partir del costo guardado en sv
+// NO lee del input, NO guarda nada. Seguro de llamar desde renderAll().
+function _renderCostDisplay(){
+  const _cost = getSvCost();
+  const base = _cost.totalReal && _cost.mult ? (_cost.total || 0) : 0;
+  const totalReal = _cost.totalReal || 0;
+  const moneda = _cost.moneda || '$';
+  const ivaOn = _cost.ivaOn || false;
+  const casos = getCases().length;
+  const nObj = getCurrentN();
+  const mult = _cost.mult || 1.08;
 
   const fmt=v=>v>0?`${moneda} ${Math.round(v).toLocaleString('es-AR')}`:'—';
-  const porCaso=casos>0?totalReal/casos:0;
+  const porCaso=casos>0&&totalReal>0?totalReal/casos:0;
   const estimado=porCaso>0&&nObj>0?porCaso*nObj:0;
   const restante=porCaso>0&&nObj>casos?porCaso*(nObj-casos):0;
 
   const el=id=>document.getElementById(id);
-
-  // Toggle visual del IVA
   const slider=el('cost-iva-slider'), knob=el('cost-iva-knob');
   if(slider) slider.style.background=ivaOn?'rgba(0,229,160,.3)':'var(--s4)';
   if(slider) slider.style.borderColor=ivaOn?'var(--green-b)':'var(--b2)';
   if(knob)   knob.style.background=ivaOn?'var(--green)':'var(--muted2)';
   if(knob)   knob.style.transform=ivaOn?'translateX(16px)':'translateX(0)';
   if(el('cost-iva-lbl')) el('cost-iva-lbl').textContent=ivaOn?'incluido':'no aplica';
-
-  // Costo total real con cargas
-  if(el('cost-total-real')) el('cost-total-real').textContent=base>0?fmt(totalReal):'—';
+  if(el('cost-total-real')) el('cost-total-real').textContent=totalReal>0?fmt(totalReal):'—';
   const multLabel = ivaOn ? `× ${mult.toFixed(4)} (8% + IVA 21%)` : '× 1.08 (fee Meta)';
   if(el('cost-mult-lbl')) el('cost-mult-lbl').textContent=multLabel;
-
   if(el('cost-por-caso'))  el('cost-por-caso').textContent=fmt(porCaso);
   if(el('cost-estimado'))  el('cost-estimado').textContent=fmt(estimado);
   if(el('cost-restante'))  el('cost-restante').textContent=restante>0?fmt(restante):'✓ Completado';
-  if(el('cost-fecha'))     el('cost-fecha').textContent=getSvCost().fecha||'—';
+  if(el('cost-fecha'))     el('cost-fecha').textContent=_cost.fecha||'—';
   if(el('kpi-costo'))      el('kpi-costo').textContent=porCaso>0?`${moneda} ${Math.round(porCaso).toLocaleString('es-AR')}`:'—';
+}
+
+// updateCost: llamada SOLO por interacción del usuario (oninput/onchange del widget)
+// Lee del DOM, GUARDA en sv, luego renderiza.
+function updateCost(){
+  const sv = getCurrentSurvey();
+  if(!sv) return; // no hay encuesta activa, no guardar nada
+
+  const base=parseFloat(document.getElementById('cost-total')?.value)||0;
+  const moneda=document.getElementById('cost-moneda')?.value||'$';
+  const ivaOn=document.getElementById('cost-iva-toggle')?.checked||false;
+  const mult = ivaOn ? (1.08 * 1.21) : 1.08;
+  const totalReal = base * mult;
+
+  // Guardar siempre que el usuario interactúa (aunque borre el valor → guarda 0 para limpiar)
+  sv.cost = {total:base, totalReal, moneda, ivaOn, mult,
+             fecha: base>0 ? new Date().toLocaleDateString('es-AR') : (sv.cost?.fecha||'')};
+  save();
+
+  _renderCostDisplay();
 }
 function renderCostWidget(){
   const el=id=>document.getElementById(id);
@@ -2613,7 +2627,7 @@ function renderCostWidget(){
     if(el('kpi-costo'))       el('kpi-costo').textContent='—';
     return;
   }
-  updateCost();
+  _renderCostDisplay();
 }
 
 // ══════════════════════════════════════════
@@ -2643,7 +2657,12 @@ function confirmSaveSurvey(){
 function loadSurvey(id){
   const s=APP.surveys?.find(x=>x.id===id); if(!s)return;
   if(!confirm(`¿Reactivar "${s.titulo}"? Reemplazará el estado actual.`))return;
-  try{ Object.assign(APP,JSON.parse(s.fullState)); save(); renderAll(); renderEncuestas(); renderCostWidget(); goPanel('dashboard'); }
+  try{
+    const fs = JSON.parse(s.fullState);
+    // Restaurar solo campos estructurales seguros
+    ['muestras','activeSurveys','activeMuestraId','surveys'].forEach(k=>{ if(fs[k]!==undefined) APP[k]=fs[k]; });
+    save(); renderAll(); renderEncuestas(); renderCostWidget(); goPanel('dashboard');
+  }
   catch(e){alert('Error: '+e.message);}
 }
 function deleteSurvey(id){
