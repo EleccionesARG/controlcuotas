@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -10,7 +9,7 @@
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
   import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
-  const firebaseConfig = {
+    const firebaseConfig = {
   apiKey: "AIzaSyBIiw9xRGrTWrSohBmn5YJFMPV_KCWLPa0",
   authDomain: "control-cuotas-pulso.firebaseapp.com",
   databaseURL: "https://control-cuotas-pulso-default-rtdb.firebaseio.com",
@@ -761,6 +760,7 @@ body.observer-mode .observer-badge{display:inline-block}
   <div class="pg-head">
     <div><div class="pg-title">Cargar CSV</div><div class="pg-sub" id="cargar-sub">Importá el export de SurveyMonkey</div></div>
     <button class="btn btn-w" onclick="goPanel('dashboard')" style="display:none" id="btn-ir-dash">← Volver al dashboard</button>
+  <button class="btn btn-w" id="btn-upload-server" onclick="uploadCsvToServer()" style="display:none" title="Procesar este CSV en el servidor y subir a Firebase">⬆ Subir al servidor</button>
   </div>
 
   <!-- Muestra activa -->
@@ -3330,6 +3330,7 @@ function goPanel(p){
   if(p==='nueva-encuesta') neInit();
   if(p==='cargar'){
     updateCargarMuestraInfo();
+    updateUploadServerBtn();
     // Show back button if inside a survey
     const btn = document.getElementById('btn-ir-dash');
     if(btn) btn.style.display = APP.currentSurveyIdx != null ? 'inline-flex' : 'none';
@@ -4093,6 +4094,65 @@ async function neConectarSM(idx){
 }
 
 // Inicializar al abrir el panel
+
+
+// ══════════════════════════════════════════
+// CSV → SERVER UPLOAD
+// Permite enviar un CSV manual al servidor Railway para que lo
+// procese y lo suba a Firebase (mismo flujo que el sync automático)
+// ══════════════════════════════════════════
+async function uploadCsvToServer(){
+  const sv = getCurrentSurvey();
+  if(!sv){ alert('Entrá a una encuesta primero.'); return; }
+  if(!_svRows || _svRows.length < 2){ alert('Cargá un CSV primero.'); return; }
+  const url = _smServerUrl || localStorage.getItem('pulso_sync_url');
+  if(!url){ alert('Configurá el servidor Railway en la pestaña SurveyMonkey.'); return; }
+
+  const btn = document.getElementById('btn-upload-server');
+  if(btn){ btn.textContent = '⬆ Subiendo...'; btn.disabled = true; }
+
+  try {
+    // Convertir _svRows a CSV string
+    const csvContent = _svRows.map(row =>
+      row.map(cell => {
+        const s = String(cell||'');
+        return s.includes(',') || s.includes('"') || s.includes('\n')
+          ? '"' + s.replace(/"/g,'""') + '"' : s;
+      }).join(',')
+    ).join('\n');
+
+    const r = await fetch(`${url}/csv/upload`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        surveyId: sv.smSurveyId,
+        csvContent,
+        colMap: sv.colMap || {},
+      }),
+    });
+    const data = await r.json();
+    if(data.ok){
+      const msgEl = document.getElementById('sv-proc-msg');
+      if(msgEl) msgEl.innerHTML = `<span style="color:var(--green)">✓ Subido al servidor: ${data.valid} casos válidos de ${data.total} filas. Firebase actualizado.</span>`;
+    } else {
+      alert('Error del servidor: ' + (data.error || 'desconocido'));
+    }
+  } catch(e){
+    alert('Error de red: ' + e.message);
+  } finally {
+    if(btn){ btn.textContent = '⬆ Subir al servidor'; btn.disabled = false; }
+  }
+}
+
+// Mostrar/ocultar botón de subida según si hay sync configurado
+function updateUploadServerBtn(){
+  const btn = document.getElementById('btn-upload-server');
+  if(!btn) return;
+  const sv = getCurrentSurvey();
+  const url = _smServerUrl || localStorage.getItem('pulso_sync_url');
+  const isManual = !sv || String(sv.smSurveyId).startsWith('manual_');
+  btn.style.display = (sv && url && !isManual) ? 'inline-flex' : 'none';
+}
 
 // ══════════════════════════════════════════
 // INIT
