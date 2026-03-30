@@ -362,6 +362,7 @@ table.dtbl{width:100%;border-collapse:collapse}
 .sync-bar-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;transition:background .3s}
 .sync-bar-dot.on{background:var(--green);box-shadow:0 0 6px var(--green)}
 .sync-bar-dot.off{background:var(--muted2)}
+.sync-bar-dot.warn{background:var(--amber);box-shadow:0 0 6px var(--amber)}
 .sync-bar-label{font-size:12px;font-weight:600;flex:1;min-width:120px}
 .sync-bar-meta{font-family:var(--mono);font-size:10px;color:var(--muted2)}
 .sync-bar-sep{width:1px;height:20px;background:var(--border);flex-shrink:0}
@@ -1817,9 +1818,22 @@ function confirmActivate(){
   const quotas={};
   Object.entries(m.distribution||{}).forEach(([k,pct])=>{ quotas[k]=Math.round(pct/100*n); });
 
-  APP.activeMuestraId=id;
-  const _svSM=getCurrentSurvey(); if(_svSM){ _svSM.n=n; _svSM.warnPct=warnPct; }
-  // quotas se guardan en sv (ver enterSurvey)
+  APP.activeMuestraId = id;
+  const _svAct = getCurrentSurvey();
+  if(_svAct){
+    // Actualizar la encuesta activa con la nueva muestra, N y cuotas
+    _svAct.muestraId  = id;
+    _svAct.n          = n;
+    _svAct.warnPct    = warnPct;
+    _svAct.quotas     = quotas;
+    // Reprocessar casos existentes con la nueva muestra
+    const m2 = APP.muestras.find(x => x.id === id);
+    if(m2 && _svAct._rawCases?.length){
+      _svAct.cases = processRawCases(_svAct._rawCases, m2);
+    } else if(m2 && _svAct.cases?.length){
+      _svAct.cases = processRawCases(_svAct.cases, m2);
+    }
+  }
   save();
   closeModal('activate-modal');
   renderMuestras();
@@ -1843,10 +1857,12 @@ function renderMuestras(){
     return;
   }
   const cobLabels={nacional:'Nacional',provincial:'Provincial',municipal:'Municipal',custom:'Personalizada'};
+  // La muestra "activa" es la de la encuesta activa (si hay una), o la global
+  const _activeMId = getCurrentSurvey()?.muestraId ?? APP.activeMuestraId;
   container.innerHTML=APP.muestras.map(m=>`
-    <div class="muestra-card ${m.id===APP.activeMuestraId?'active-muestra':''}">
+    <div class="muestra-card ${m.id===_activeMId?'active-muestra':''}">
       <div>
-        <div class="mc-name">${m.nombre} ${m.id===APP.activeMuestraId?'<span class="pill pill-g">● Activa</span>':''}</div>
+        <div class="mc-name">${m.nombre} ${m.id===_activeMId?'<span class="pill pill-g">● Activa</span>':''}</div>
         <div class="mc-scope">${cobLabels[m.cobertura]||m.cobertura} · ${m.estratos.join(', ')} → ${(m.ageGroups||[]).join(', ')}</div>
         <div class="mc-stats">
           <span class="mc-stat">${m.estratos.length} estratos</span>
@@ -3212,7 +3228,11 @@ function updateSurveyFromFirebase(data){
     }
     matchFound = true;
 
-    if(data.lastSync)  sv.lastSync  = data.lastSync;
+    if(data.lastSync){
+      sv.lastSync   = data.lastSync;
+      sv.syncStats  = data.syncStats || sv.syncStats;
+      sv.syncActive = true; // si llegaron datos, el sync está activo
+    }
     if(data.syncStats) sv.syncStats = data.syncStats;
 
     if(data.rawCases){
@@ -3631,9 +3651,15 @@ function updateDashSyncBar(){
   const lastSync = sv.lastSync ? new Date(sv.lastSync).toLocaleString('es-AR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : 'Nunca';
   const stats = sv.syncStats;
 
-  if(dot) dot.className = 'sync-bar-dot ' + (active ? 'on' : 'off');
-  if(label) label.textContent = active ? `Sincronizando cada ${sv.intervalMinutes||15} min — ${sv.smTitle||''}` : `Sync detenido — ${sv.smTitle||''}`;
-  if(meta) meta.textContent = `Último sync: ${lastSync}` + (stats ? ` · ${stats.valid} válidos · ${stats.excluded} excluidos` : '');
+  // Si dice activo pero nunca sincronizó, puede ser que el servidor se reinició
+  const stale = active && !sv.lastSync;
+  if(dot) dot.className = 'sync-bar-dot ' + (stale ? 'warn' : active ? 'on' : 'off');
+  if(label) label.textContent = stale
+    ? `Sync configurado, esperando primer ciclo — ${sv.smTitle||''}`
+    : active
+      ? `Sincronizando cada ${sv.intervalMinutes||15} min — ${sv.smTitle||''}`
+      : `Sync detenido — ${sv.smTitle||''}`;
+  if(meta) meta.textContent = `Último sync: ${lastSync}` + (stats ? ` · ${stats.valid} válidos · ${stats.excluded||0} excluidos` : '');
   if(intervalInp && !active) intervalInp.value = sv.intervalMinutes || 15;
   if(startBtn) startBtn.style.display = active ? 'none' : '';
   if(stopBtn) stopBtn.style.display = active ? '' : 'none';
@@ -3665,15 +3691,17 @@ async function dashSyncStart(){
     });
     const data = await r.json();
     if(data.ok){
-      // Update survey entry
       const idx = APP.currentSurveyIdx;
       if(idx != null && APP.activeSurveys[idx]){
-        APP.activeSurveys[idx].syncActive = true;
+        APP.activeSurveys[idx].syncActive      = true;
         APP.activeSurveys[idx].intervalMinutes = intervalMinutes;
+        // No resetear lastSync — conservar el del sync anterior si existe
       }
       save();
       updateDashSyncBar();
       renderHome();
+      // Forzar sync inmediato para confirmar que el servidor responde
+      setTimeout(dashSyncNow, 1500);
     } else { throw new Error(data.error); }
   } catch(e){
     alert('Error al iniciar sync: ' + e.message);
