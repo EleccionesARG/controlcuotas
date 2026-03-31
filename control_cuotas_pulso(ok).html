@@ -1546,16 +1546,16 @@ function applyRef(){
     // 2 columns: nivel2 → estrato
     di=parseInt(document.getElementById('rc-nivel2')?.value??0);
     ei=parseInt(document.getElementById('rc-estrato')?.value??1);
-    const refTable=_refRows.slice(1).filter(r=>r[di]&&r[ei]).map(r=>({nivel1:'',nivel2:r[di].trim(),estrato:r[ei].trim()}));
-    const estratos=[...new Set(refTable.map(r=>r.estrato))].sort();
+    const refTable=_refRows.slice(1).filter(r=>r[di] && (r[ei]!==undefined && r[ei]!==null && r[ei].trim()!=='')).map(r=>({nivel1:'',nivel2:r[di].trim(),estrato:r[ei].trim()}));
+    const estratos=[...new Set(refTable.map(r=>r.estrato).filter(x => x !== null && x !== undefined && x !== ''))].sort();
     // Store temporarily in a global for saveMuestra to pick up
     window._pendingRef = { refTable, estratos };
   } else {
     pi=parseInt(document.getElementById('rc-nivel1')?.value??0);
     di=parseInt(document.getElementById('rc-nivel2')?.value??1);
     ei=parseInt(document.getElementById('rc-estrato')?.value??2);
-    const refTable=_refRows.slice(1).filter(r=>r[pi]&&r[di]&&r[ei]).map(r=>({nivel1:r[pi].trim(),nivel2:r[di].trim(),estrato:r[ei].trim()}));
-    const estratos=[...new Set(refTable.map(r=>r.estrato))].sort();
+    const refTable=_refRows.slice(1).filter(r=>r[pi] && r[di] && (r[ei]!==undefined && r[ei]!==null && r[ei].trim()!=='')).map(r=>({nivel1:r[pi].trim(),nivel2:r[di].trim(),estrato:r[ei].trim()}));
+    const estratos=[...new Set(refTable.map(r=>r.estrato).filter(x => x !== null && x !== undefined && x !== ''))].sort();
     window._pendingRef = { refTable, estratos };
   }
   const {refTable,estratos}=window._pendingRef;
@@ -1648,7 +1648,7 @@ function updatePctTotals(){
   if(!estratos.length){
     // try to infer from inputs
     const keys=[...document.querySelectorAll('.pct-inp')].map(i=>i.dataset.key);
-    estratos=[...new Set(keys.map(k=>cParts(k)[2]))].filter(Boolean).sort();
+    estratos=[...new Set(keys.map(k=>cParts(k)[2]))].filter(x => x !== null && x !== undefined && x !== '').sort();
   }
   let grandTotal=0;
 
@@ -1690,7 +1690,7 @@ function onPctKey(e,inp){
   const agesRaw=document.getElementById('mm-ages').value.split(',').map(s=>s.trim()).filter(Boolean);
   const nc=agesRaw.length; // cols = ages
   let estratos=window._pendingRef?window._pendingRef.estratos:[];
-  if(!estratos.length){ estratos=[...new Set([...document.querySelectorAll('.pct-inp')].map(i=>cParts(i.dataset.key||'||')[2]).filter(Boolean))].sort(); }
+  if(!estratos.length){ estratos=[...new Set([...document.querySelectorAll('.pct-inp')].map(i=>cParts(i.dataset.key||'||')[2]).filter(x => x !== null && x !== undefined && x !== ''))].sort(); }
   const nr=estratos.length, ng=2; // rows = estratos
   let r2=r,c2=c,g2=gi;
   if(e.key==='Tab'||e.key==='ArrowRight'){ e.preventDefault(); if(c<nc-1)c2=c+1; else if(r<nr-1){c2=0;r2=r+1;} else if(gi<ng-1){g2=gi+1;c2=0;r2=0;} }
@@ -3863,7 +3863,7 @@ function neUpdateMuestraInfo(){
   if(!el) return;
   if(!m){ el.innerHTML = ''; return; }
   const cobLabels = {nacional:'Nacional',provincial:'Provincial',municipal:'Municipal',custom:'Personalizada'};
-  const estratos = [...new Set((m.refTable||[]).map(r=>r.estrato).filter(Boolean))];
+  const estratos = [...new Set((m.refTable||[]).map(r=>r.estrato).filter(x => x !== null && x !== undefined && x !== ''))];
   el.innerHTML = `<div class="al al-g" style="font-size:12px">
     ✓ <strong>${m.nombre}</strong> · ${cobLabels[m.cobertura]||m.cobertura} · ${estratos.length} estratos · ${m.ageGroups?.join(', ')||'—'}
   </div>`;
