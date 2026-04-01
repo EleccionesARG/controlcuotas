@@ -51,6 +51,8 @@
           showSync('ok','● Conectado');
           renderHome();
           renderMuestras();
+          // Ocultar loading overlay — Firebase respondió con datos
+          _fbHideLoading('● Conectado');
         } catch(e){ console.warn('Config parse error:', e); }
       });
 
@@ -441,6 +443,22 @@ body.observer-mode .observer-badge{display:inline-block}
 </style>
 </head>
 <body>
+
+<!-- LOADING OVERLAY — se oculta cuando Firebase responde -->
+<div id="fb-loading" style="position:fixed;inset:0;z-index:9998;background:#0e0e0e;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;transition:opacity .4s">
+  <div style="font-family:'Rubik',sans-serif;font-size:22px;color:#f0ede8;font-weight:600">Control de <em style="color:#3ecf8e">Cuotas</em></div>
+  <div style="font-size:13px;color:#717171;font-family:'JetBrains Mono',monospace" id="fb-loading-msg">Conectando con Firebase...</div>
+  <div style="width:48px;height:3px;background:#1e1e1e;border-radius:2px;overflow:hidden">
+    <div style="height:100%;background:#3ecf8e;border-radius:2px;animation:fbload 1.2s ease-in-out infinite" id="fb-bar"></div>
+  </div>
+</div>
+<style>
+@keyframes fbload {
+  0%{width:0%;margin-left:0}
+  50%{width:60%;margin-left:20%}
+  100%{width:0%;margin-left:100%}
+}
+</style>
 
 <!-- LOGIN -->
 <div id="login-screen">
@@ -1388,7 +1406,12 @@ function showSync(type,msg){
   const c={ok:'#5bdb8a',err:'#f08080',sync:'#f0c060',off:'rgba(255,255,255,.2)'};
   el.textContent=msg; el.style.color=c[type]||c.off;
 }
-setTimeout(()=>{ if(!window._fbReady) showSync('off','● Sin Firebase'); },2500);
+setTimeout(()=>{ 
+  if(!window._fbReady){ 
+    showSync('off','● Sin Firebase'); 
+    _fbHideLoading('sin Firebase');
+  } 
+},2500);
 
 // ══════════════════════════════════════════
 // NAV
@@ -4217,6 +4240,20 @@ function updateUploadServerBtn(){
 }
 
 // ══════════════════════════════════════════
+// ══════════════════════════════════════════
+// LOADING OVERLAY MANAGER
+// ══════════════════════════════════════════
+let _fbLoadingHidden = false;
+function _fbHideLoading(msg){
+  if(_fbLoadingHidden) return;
+  _fbLoadingHidden = true;
+  const ov = document.getElementById('fb-loading');
+  if(!ov) return;
+  ov.style.opacity = '0';
+  setTimeout(() => { ov.style.display = 'none'; }, 420);
+  if(msg) console.log('[FB]', msg);
+}
+
 // INIT
 // ══════════════════════════════════════════
 load();
@@ -4234,8 +4271,17 @@ APP.currentSurveyIdx = null;
     document.getElementById('login-screen').style.display='none';
   }
 })();
-renderHome();
-renderMuestras();
+// Si Firebase no responde en 3 segundos, mostrar lo que haya (localStorage o vacío)
+setTimeout(() => {
+  if(!_fbLoadingHidden){
+    _fbHideLoading('timeout — usando datos locales');
+    renderHome();
+    renderMuestras();
+  }
+}, 3000);
+
+// Firebase onValue va a renderizar cuando lleguen los datos reales
+// Mientras tanto, un F5 normal muestra el loading overlay
 renderEncuestas();
 renderCostWidget();
 updateCargarMuestraInfo();
