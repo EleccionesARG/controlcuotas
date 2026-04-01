@@ -1279,11 +1279,18 @@ body.observer-mode .observer-badge{display:inline-block}
 // ══════════════════════════════════════════
 // ← CAMBIÁ ESTA CONTRASEÑA
 const ACCESS_PASSWORD = "pulso2025";
+const OBSERVER_PASSWORD = "pulso-ver"; // contraseña de solo lectura para socios/clientes
 
 function doLogin(){
   const v=document.getElementById('li-pwd').value;
-  if(v===ACCESS_PASSWORD){ document.getElementById('login-screen').style.display='none'; sessionStorage.setItem('pa','1'); }
-  else {
+  if(v===ACCESS_PASSWORD){
+    document.getElementById('login-screen').style.display='none';
+    sessionStorage.setItem('pa','1');
+  } else if(v===OBSERVER_PASSWORD){
+    document.getElementById('login-screen').style.display='none';
+    sessionStorage.setItem('pa','1');
+    document.body.classList.add('observer-mode');
+  } else {
     const inp=document.getElementById('li-pwd'); const err=document.getElementById('li-err');
     err.textContent='Contraseña incorrecta'; inp.classList.add('shake'); inp.value='';
     setTimeout(()=>inp.classList.remove('shake'),400); inp.focus();
@@ -3406,8 +3413,8 @@ function goPanel(p){
   const params = new URLSearchParams(window.location.search);
   if(params.get('view') === '1' || params.get('observer') === '1'){
     document.body.classList.add('observer-mode');
-    // Skip password for observers
-    sessionStorage.setItem('pulso_auth','1');
+    sessionStorage.setItem('pa','1'); // misma clave que doLogin
+    document.getElementById('login-screen').style.display='none';
   }
 })();
 
@@ -4223,7 +4230,8 @@ APP.currentSurveyIdx = null;
   const p=new URLSearchParams(window.location.search);
   if(p.get('view')==='1'||p.get('observer')==='1'){
     document.body.classList.add('observer-mode');
-    sessionStorage.setItem('pulso_auth','1');
+    sessionStorage.setItem('pa','1');
+    document.getElementById('login-screen').style.display='none';
   }
 })();
 renderHome();
