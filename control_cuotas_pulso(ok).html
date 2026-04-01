@@ -25,12 +25,17 @@
       const db = getDatabase(app);
       window._fbRef = ref(db, 'pulso/v4');
       window._fbSet = set;
+      window._fbDB  = db;
+      window._fbRefFn = ref;  // guardar la función ref para crear refs dinámicas
       window._fbReady = true;
       // Two listeners: config (dashboard state) + sync (server data)
       const fbConfigRef = ref(db, 'pulso/v4config');
       const fbSyncRef   = ref(db, 'pulso/v4sync');
       window._fbConfigRef = fbConfigRef;
       window._fbSyncRef   = fbSyncRef;
+      // Ref para casos cargados manualmente (CSV)
+      const fbCasesRef = ref(db, 'pulso/v4cases');
+      window._fbCasesRef = fbCasesRef;
 
       // Config listener: restores muestras, activeSurveys, etc.
       onValue(fbConfigRef, (snap) => {
@@ -56,6 +61,27 @@
           // Re-registrar syncs activos en Railway (resuelve el problema de server stateless)
           setTimeout(reRegisterActiveSyncs, 1500);
         } catch(e){ console.warn('Config parse error:', e); }
+      });
+
+      // Cases listener: restaura casos cargados manualmente desde Firebase
+      onValue(fbCasesRef, (snap) => {
+        if(window._suppressRemote) return;
+        const root = snap.val();
+        if(!root || typeof root !== 'object') return;
+        try {
+          Object.entries(root).forEach(([surveyId, casesJson]) => {
+            const sv = (APP.activeSurveys||[]).find(s => String(s.smSurveyId) === String(surveyId));
+            if(!sv) return;
+            const cases = typeof casesJson === 'string' ? JSON.parse(casesJson) : casesJson;
+            if(Array.isArray(cases) && cases.length > 0){
+              sv.cases = cases;
+              console.log(`[v4cases] Restaurados ${cases.length} casos para ${sv.smTitle||surveyId}`);
+            }
+          });
+          // Re-renderizar si hay una encuesta activa
+          if(APP.currentSurveyIdx != null) renderAll();
+          renderHome();
+        } catch(e){ console.warn('[v4cases] parse error:', e); }
       });
 
       // Sync listener: escucha la raíz pulso/v4sync
@@ -1339,6 +1365,21 @@ let APP = {...DFLT};
 
 // APP.cases/quotas/cost/n/warnPct se manejan via getCurrentSurvey() — ver helpers abajo
 
+
+// ══════════════════════════════════════════
+// SAVE CASES TO FIREBASE
+// Guarda los casos de una encuesta en pulso/v4cases/{surveyId}
+// ══════════════════════════════════════════
+function saveCases(sv){
+  if(!sv || !sv.smSurveyId) return;
+  if(!window._fbSet || !window._fbDB || !window._fbRefFn) return;
+  try {
+    const r = window._fbRefFn(window._fbDB, `pulso/v4cases/${sv.smSurveyId}`);
+    window._fbSet(r, JSON.stringify(sv.cases || []))
+      .then(() => console.log(`[saveCases] ✓ ${sv.cases?.length} casos en Firebase (${sv.smTitle})`))
+      .catch(e => console.warn('[saveCases] error:', e));
+  } catch(e){ console.warn('[saveCases] error:', e); }
+}
 function save(){
   try {
     // Limpiar cases/_rawCases antes de persistir — son datos de campo (pesados),
@@ -2114,6 +2155,8 @@ function processSurvey(){
     _svCSV.cases = finalCases;
     _svCSV.nextId = nextId;
     _svCSV._rawCases = null;
+    // Guardar casos en Firebase para que persistan tras F5
+    saveCases(_svCSV);
   }
   APP.nextId = nextId;
 
@@ -2480,13 +2523,16 @@ function renderSidebar(){
 }
 
 function rmCase(i){
-  // APP.cases es proxy — splice modifica sv.cases directamente
   getCases().splice(i,1);
+  const _svRm = getCurrentSurvey();
+  if(_svRm) saveCases(_svRm);
   save();renderAll();
 }
 function clearCases(){
   if(!confirm('¿Borrar todos los casos?'))return;
-  const _svCC=getCurrentSurvey(); if(_svCC){ _svCC.cases=[]; _svCC._rawCases=null; _svCC.nextId=1; } APP.nextId=1;
+  const _svCC=getCurrentSurvey();
+  if(_svCC){ _svCC.cases=[]; _svCC._rawCases=null; _svCC.nextId=1; saveCases(_svCC); }
+  APP.nextId=1;
   save();renderAll();
 }
 function exportCSV(){
@@ -2535,6 +2581,7 @@ function addManual(){
     if(!_svAC.nextId) _svAC.nextId=1;
     getCases().push({id:idRaw||`R${String(_svAC.nextId).padStart(4,'0')}`,gen,edad,ageGrp,prov,depto,estrato,key,ts:Date.now()});
     _svAC.nextId++;
+    saveCases(_svAC); // persistir en Firebase
   }
   document.getElementById('m-edad').value=''; document.getElementById('m-id').value='';
   save();renderAll();
