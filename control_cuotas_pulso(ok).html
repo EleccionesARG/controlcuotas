@@ -53,6 +53,8 @@
           renderMuestras();
           // Ocultar loading overlay — Firebase respondió con datos
           _fbHideLoading('● Conectado');
+          // Re-registrar syncs activos en Railway (resuelve el problema de server stateless)
+          setTimeout(reRegisterActiveSyncs, 1500);
         } catch(e){ console.warn('Config parse error:', e); }
       });
 
@@ -3754,6 +3756,7 @@ async function dashSyncStart(){
         APP.activeSurveys[idx].intervalMinutes = intervalMinutes;
         // No resetear lastSync — conservar el del sync anterior si existe
       }
+      _syncReregistered = false; // permitir re-registro en próxima recarga
       save();
       updateDashSyncBar();
       renderHome();
@@ -3775,6 +3778,7 @@ async function dashSyncStop(){
     if(idx != null && APP.activeSurveys[idx]){
       APP.activeSurveys[idx].syncActive = false;
     }
+    _syncReregistered = false;
     save();
     updateDashSyncBar();
     renderHome();
@@ -4243,6 +4247,66 @@ function updateUploadServerBtn(){
 // ══════════════════════════════════════════
 // LOADING OVERLAY MANAGER
 // ══════════════════════════════════════════
+
+// ══════════════════════════════════════════
+// AUTO-REREGISTER SYNCS EN RAILWAY
+// Cuando Firebase restaura la config al cargar, re-registra
+// en Railway todas las encuestas activas para que el cron
+// no se pierda tras un reinicio del servidor.
+// ══════════════════════════════════════════
+let _syncReregistered = false; // solo hacerlo una vez por sesión
+
+async function reRegisterActiveSyncs(){
+  if(_syncReregistered) return;
+  const url = _smServerUrl;
+  if(!url) return;
+
+  const activas = (APP.activeSurveys||[]).filter(sv =>
+    sv.syncActive &&
+    sv.smSurveyId &&
+    !String(sv.smSurveyId).startsWith('manual_') &&
+    sv.colMap?.gen
+  );
+
+  if(!activas.length) return;
+
+  console.log(`[AutoSync] Re-registrando ${activas.length} encuesta(s) en Railway...`);
+
+  // Verificar que Railway está respondiendo antes de registrar
+  try {
+    const health = await fetch(url, { signal: AbortSignal.timeout(5000) });
+    if(!health.ok) { console.warn('[AutoSync] Railway no responde'); return; }
+  } catch(e) {
+    console.warn('[AutoSync] Railway inaccesible:', e.message);
+    return;
+  }
+
+  for(const sv of activas){
+    try {
+      const r = await fetch(`${url}/sync/config`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          surveyId:        sv.smSurveyId,
+          colMap:          sv.colMap,
+          muestraId:       sv.muestraId,
+          intervalMinutes: sv.intervalMinutes || 720,
+        }),
+      });
+      const data = await r.json();
+      if(data.ok){
+        console.log(`[AutoSync] ✓ ${sv.smTitle} re-registrada (cada ${sv.intervalMinutes||720} min)`);
+      } else {
+        console.warn(`[AutoSync] ✗ ${sv.smTitle}:`, data.error);
+      }
+    } catch(e){
+      console.warn(`[AutoSync] Error re-registrando ${sv.smTitle}:`, e.message);
+    }
+  }
+
+  _syncReregistered = true;
+}
+
 let _fbLoadingHidden = false;
 function _fbHideLoading(msg){
   if(_fbLoadingHidden) return;
