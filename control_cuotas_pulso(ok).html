@@ -33,9 +33,7 @@
       const fbSyncRef   = ref(db, 'pulso/v4sync');
       window._fbConfigRef = fbConfigRef;
       window._fbSyncRef   = fbSyncRef;
-      // Ref para casos cargados manualmente (CSV)
-      const fbCasesRef = ref(db, 'pulso/v4cases');
-      window._fbCasesRef = fbCasesRef;
+      // (v4cases eliminado — casos van a v4sync)
 
       // Config listener: restores muestras, activeSurveys, etc.
       onValue(fbConfigRef, (snap) => {
@@ -61,27 +59,6 @@
           // Re-registrar syncs activos en Railway (resuelve el problema de server stateless)
           setTimeout(reRegisterActiveSyncs, 1500);
         } catch(e){ console.warn('Config parse error:', e); }
-      });
-
-      // Cases listener: restaura casos cargados manualmente desde Firebase
-      onValue(fbCasesRef, (snap) => {
-        if(window._suppressRemote) return;
-        const root = snap.val();
-        if(!root || typeof root !== 'object') return;
-        try {
-          Object.entries(root).forEach(([surveyId, casesJson]) => {
-            const sv = (APP.activeSurveys||[]).find(s => String(s.smSurveyId) === String(surveyId));
-            if(!sv) return;
-            const cases = typeof casesJson === 'string' ? JSON.parse(casesJson) : casesJson;
-            if(Array.isArray(cases) && cases.length > 0){
-              sv.cases = cases;
-              console.log(`[v4cases] Restaurados ${cases.length} casos para ${sv.smTitle||surveyId}`);
-            }
-          });
-          // Re-renderizar si hay una encuesta activa
-          if(APP.currentSurveyIdx != null) renderAll();
-          renderHome();
-        } catch(e){ console.warn('[v4cases] parse error:', e); }
       });
 
       // Sync listener: escucha la raíz pulso/v4sync
@@ -1368,15 +1345,25 @@ let APP = {...DFLT};
 
 // ══════════════════════════════════════════
 // SAVE CASES TO FIREBASE
-// Guarda los casos de una encuesta en pulso/v4cases/{surveyId}
+// Guarda los casos en pulso/v4sync/{surveyId} — mismo path que Railway,
+// mismo path que ya tiene permisos. Desde el cliente usamos el mismo
+// formato que el server para que sea compatible.
 // ══════════════════════════════════════════
 function saveCases(sv){
   if(!sv || !sv.smSurveyId) return;
   if(!window._fbSet || !window._fbDB || !window._fbRefFn) return;
+  if(!sv.cases || !sv.cases.length) return;
   try {
-    const r = window._fbRefFn(window._fbDB, `pulso/v4cases/${sv.smSurveyId}`);
-    window._fbSet(r, JSON.stringify(sv.cases || []))
-      .then(() => console.log(`[saveCases] ✓ ${sv.cases?.length} casos en Firebase (${sv.smTitle})`))
+    const r = window._fbRefFn(window._fbDB, `pulso/v4sync/${sv.smSurveyId}`);
+    const payload = JSON.stringify({
+      surveyId:  String(sv.smSurveyId),
+      rawCases:  sv.cases,  // casos ya procesados, los guardamos como rawCases
+      lastSync:  new Date().toISOString(),
+      source:    'csv_manual',
+      syncStats: { total: sv.cases.length, valid: sv.cases.length }
+    });
+    window._fbSet(r, payload)
+      .then(() => console.log(`[saveCases] ✓ ${sv.cases.length} casos en Firebase v4sync/${sv.smSurveyId}`))
       .catch(e => console.warn('[saveCases] error:', e));
   } catch(e){ console.warn('[saveCases] error:', e); }
 }
@@ -3363,7 +3350,23 @@ function updateSurveyFromFirebase(data){
     updateDashSyncBar();
   }
   if(!matchFound && targetId){
-    console.warn(`[updateSurveyFromFirebase] ⚠ No se encontró ninguna encuesta con smSurveyId=${targetId}. IDs activos: [${activeSurveyIds}]`);
+    // Fallback: si hay exactamente UNA encuesta activa y el source es 'csv_manual',
+    // puede que el smSurveyId haya cambiado — asignar igualmente
+    const manualSv = (APP.activeSurveys||[]).find(s =>
+      !String(s.smSurveyId).startsWith('manual_') && s.colMap?.gen
+    );
+    if(manualSv && data.source === 'csv_manual'){
+      const rawCases = data.rawCases || [];
+      const muestra = (APP.muestras||[]).find(m => m.id === manualSv.muestraId);
+      manualSv.cases = muestra ? processRawCases(rawCases, muestra) : rawCases;
+      manualSv.lastSync = data.lastSync || new Date().toISOString();
+      manualSv.syncStats = data.syncStats;
+      if(APP.currentSurveyIdx != null) renderAll();
+      renderHome();
+      console.log(`[updateSurveyFromFirebase] Fallback → asignado a ${manualSv.smTitle} (${manualSv.cases.length} casos)`);
+    } else {
+      console.warn(`[updateSurveyFromFirebase] ⚠ No se encontró ninguna encuesta con smSurveyId=${targetId}. IDs activos: [${activeSurveyIds}]`);
+    }
   }
   renderHome();
 }
